@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedMoney } from "@/components/motion";
 import { Check, CircleHelp, ArrowRight } from "lucide-react";
 import { previewBudget } from "@/lib/domain/preview.js";
 
@@ -101,7 +102,7 @@ export default function QuickComparison({
                 Monthly shared contribution
               </span>
               <strong className="quick-contribution">
-                {money(result.contributionsCents[index])}
+                <AnimatedMoney value={result.contributionsCents[index]} enter />
               </strong>
               <p className="quick-delta">
                 {change === 0
@@ -115,7 +116,11 @@ export default function QuickComparison({
               <div className="quick-left">
                 <span>After this contribution</span>
                 <strong>
-                  {remaining === null ? "Income not added" : money(remaining)}
+                  {remaining === null ? (
+                    "Income not added"
+                  ) : (
+                    <AnimatedMoney value={remaining} enter />
+                  )}
                 </strong>
               </div>
               {remaining !== null && remaining < 0 && (

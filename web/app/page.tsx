@@ -8,6 +8,7 @@ import {
   LockKeyhole,
   Plus,
 } from "lucide-react";
+import { AnimatedMoney } from "@/components/motion";
 import { Brand } from "@/components/brand";
 import { HomeScene } from "@/components/home-scene";
 import { money } from "@/components/quick-comparison";
@@ -142,7 +143,9 @@ export default function Home() {
             <h1>
               Big plans.
               <br />
-              <span>Same team.</span>
+              <span>
+                Same <em>team.</em>
+              </span>
             </h1>
             <p className="new-intro">
               A sofa. A shared bill. A trip you keep putting off. <br />
@@ -210,7 +213,10 @@ export default function Home() {
                 </div>
               </div>
               <span className="scene-price">
-                The sofa <strong>{money(price * 100)}</strong>
+                The sofa{" "}
+                <strong>
+                  <AnimatedMoney value={price * 100} />
+                </strong>
               </span>
             </div>
             <div className="scenario-console">
@@ -226,7 +232,9 @@ export default function Home() {
                   value={price}
                   onChange={(e) => setPrice(Number(e.target.value))}
                 />
-                <output htmlFor="sample-price">{money(price * 100)}</output>
+                <output htmlFor="sample-price">
+                  <AnimatedMoney value={price * 100} />
+                </output>
               </div>
               <div
                 className="scenario-tabs"
@@ -273,11 +281,17 @@ export default function Home() {
                 <div className="scenario-numbers">
                   <span>
                     <i className="person-0" />
-                    Alex<strong>{money(selected.firstMonth[0])}</strong>
+                    Alex
+                    <strong>
+                      <AnimatedMoney value={selected.firstMonth[0]} />
+                    </strong>
                   </span>
                   <span>
                     <i className="person-1" />
-                    Jordan<strong>{money(selected.firstMonth[1])}</strong>
+                    Jordan
+                    <strong>
+                      <AnimatedMoney value={selected.firstMonth[1]} />
+                    </strong>
                   </span>
                 </div>
               </div>

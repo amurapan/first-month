@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Brand } from "@/components/brand";
+import { AnimatedMoney, PlanAssembly } from "@/components/motion";
 import QuickComparison, {
   money,
   type QuickMethod,
@@ -111,8 +112,17 @@ export default function StartWizard() {
     [persisted, setPersisted] = useState(true),
     [restored, setRestored] = useState(false),
     [busy, setBusy] = useState(false),
+    [assembling, setAssembling] = useState(false),
     [error, setError] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const comparisonShown = useRef(false);
+  useEffect(
+    () => () => {
+      if (revealTimer.current) clearTimeout(revealTimer.current);
+    },
+    [],
+  );
   useEffect(() => {
     const saved = readDraft<unknown>(storageKey);
     if (validDraft(saved)) {
@@ -130,6 +140,7 @@ export default function StartWizard() {
         }
       }
       setDraft({ ...saved, step });
+      comparisonShown.current = step === 2;
       setRestored(true);
     }
     setReady(true);
@@ -142,6 +153,8 @@ export default function StartWizard() {
     setError("");
   }
   function go(step: number) {
+    if (revealTimer.current) clearTimeout(revealTimer.current);
+    setAssembling(false);
     change({ step });
     requestAnimationFrame(() => {
       heading.current?.focus();
@@ -150,12 +163,25 @@ export default function StartWizard() {
   }
   function next(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (assembling) return;
     try {
       if (draft.step === 0) {
         const n = numbers(draft);
         if (n.partnerIncome === null || n.income + n.partnerIncome === 0)
           change({ method: "equal" });
-      } else expenses(draft);
+      } else {
+        expenses(draft);
+        if (
+          !comparisonShown.current &&
+          !matchMedia("(prefers-reduced-motion: reduce)").matches
+        ) {
+          comparisonShown.current = true;
+          setAssembling(true);
+          window.scrollTo({ top: 0, behavior: "instant" });
+          revealTimer.current = setTimeout(() => go(2), 1250);
+          return;
+        }
+      }
       go(draft.step + 1);
     } catch (e) {
       setError((e as Error).message);
@@ -264,13 +290,14 @@ export default function StartWizard() {
             </div>
           ))}
         </nav>
-        {restored && (
+        {restored && !assembling && (
           <p className="draft-restored">
             <Check size={14} /> Pick up where you left off.{" "}
             <button
               className="text-button"
               onClick={() => {
                 clearDraft(storageKey);
+                comparisonShown.current = false;
                 setDraft(initial);
                 setRestored(false);
                 setError("");
@@ -280,7 +307,11 @@ export default function StartWizard() {
             </button>
           </p>
         )}
-        <div className="wizard-heading">
+        <div
+          className="wizard-heading"
+          key={"heading-" + draft.step}
+          hidden={assembling}
+        >
           <p className="eyebrow">
             {draft.step === 2
               ? "A STARTING POINT, BEFORE THE BIG TALK"
@@ -310,8 +341,13 @@ export default function StartWizard() {
             {error}
           </div>
         )}
-        {draft.step < 2 && (
-          <form className="wizard-card" onSubmit={next}>
+        {assembling && <PlanAssembly onSkip={() => go(2)} />}
+        {draft.step < 2 && !assembling && (
+          <form
+            className="wizard-card"
+            key={"form-" + draft.step}
+            onSubmit={next}
+          >
             {draft.step === 0 ? (
               <>
                 <div className="wizard-income-fields">
@@ -553,7 +589,10 @@ export default function StartWizard() {
           <>
             <div className="wizard-result-summary">
               <span>
-                Shared monthly costs<strong>{money(result.total)}</strong>
+                Shared monthly costs
+                <strong>
+                  <AnimatedMoney value={result.total} enter />
+                </strong>
               </span>
               <button className="text-button" onClick={() => go(0)}>
                 <RotateCcw size={15} /> Edit the numbers
@@ -635,6 +674,9 @@ export default function StartWizard() {
           <button
             className="text-button"
             onClick={() => {
+              if (revealTimer.current) clearTimeout(revealTimer.current);
+              setAssembling(false);
+              comparisonShown.current = false;
               clearDraft(storageKey);
               setDraft(initial);
               setRestored(false);

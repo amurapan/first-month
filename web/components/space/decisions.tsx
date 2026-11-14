@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedMoney } from "@/components/motion";
 import { useState } from "react";
 import {
   Archive,
@@ -401,7 +402,7 @@ function DecisionDetail({
         <h1>{item.title}</h1>
         <div>
           <strong>
-            {money(item.proposal?.amount ?? item.amount)}
+            <AnimatedMoney value={item.proposal?.amount ?? item.amount} enter />
             {item.kind === "recurring" && <small>/ month</small>}
           </strong>
           <span
@@ -739,7 +740,7 @@ function DecisionDetail({
           <GuideCard
             text={item.guide}
             busy={busy}
-            onGenerate={() => void onGuide(item)}
+            onGenerate={() => onGuide(item)}
           />
         </details>
       )}
@@ -1060,7 +1061,7 @@ function ProposalBuilder({
             <article key={name + i}>
               <span>{name}</span>
               <strong>
-                {money(impact!.firstMonth[i])}
+                <AnimatedMoney value={impact!.firstMonth[i]} enter />
                 <small>
                   {Number(draft.value.months) > 1
                     ? "saved in month one"
@@ -1072,11 +1073,15 @@ function ProposalBuilder({
               <dl>
                 <div>
                   <dt>Total contribution</dt>
-                  <dd>{money(impact!.contributions[i])}</dd>
+                  <dd>
+                    <AnimatedMoney value={impact!.contributions[i]} enter />
+                  </dd>
                 </div>
                 <div>
                   <dt>After included monthly costs</dt>
-                  <dd>{money(impact!.remaining[i])}</dd>
+                  <dd>
+                    <AnimatedMoney value={impact!.remaining[i]} enter />
+                  </dd>
                 </div>
               </dl>
               <p
@@ -1205,7 +1210,7 @@ function SavingsProgress({
             <div key={side}>
               <span>{pair[i]}</span>
               <strong>
-                {money(saved)}
+                <AnimatedMoney value={saved} enter />
                 <small> of {money(target)}</small>
               </strong>
               <progress

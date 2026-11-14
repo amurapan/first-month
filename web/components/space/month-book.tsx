@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedMoney } from "@/components/motion";
 import { useEffect, useState } from "react";
 import {
   ArrowDownLeft,
@@ -482,7 +483,9 @@ export default function MonthBook({
             <div className="month-stats">
               <div>
                 <span>Shared costs recorded</span>
-                <strong>{money(totals!.total)}</strong>
+                <strong>
+                  <AnimatedMoney value={totals!.total} enter />
+                </strong>
                 <small>
                   {totals!.expenseCount}{" "}
                   {totals!.expenseCount === 1 ? "expense" : "expenses"} · after
@@ -491,7 +494,9 @@ export default function MonthBook({
               </div>
               <div>
                 <span>Monthly plan</span>
-                <strong>{money(totals!.planned)}</strong>
+                <strong>
+                  <AnimatedMoney value={totals!.planned} enter />
+                </strong>
                 <small>Saved from plan v{month.baseline.planVersion}</small>
               </div>
               <div className={totals!.difference > 0 ? "over-budget" : ""}>
@@ -500,7 +505,9 @@ export default function MonthBook({
                     ? "Above the plan"
                     : "Not yet used in the plan"}
                 </span>
-                <strong>{money(Math.abs(totals!.difference))}</strong>
+                <strong>
+                  <AnimatedMoney value={Math.abs(totals!.difference)} enter />
+                </strong>
                 <small>
                   {period === currentMonth()
                     ? "Month still underway · entries may be incomplete"
@@ -513,7 +520,9 @@ export default function MonthBook({
                     ? "Remaining reimbursement"
                     : "Projected reimbursement"}
                 </span>
-                <strong>{money(Math.abs(outstanding))}</strong>
+                <strong>
+                  <AnimatedMoney value={Math.abs(outstanding)} enter />
+                </strong>
                 <small>
                   {outstanding
                     ? pair[outstanding > 0 ? 0 : 1] +
@@ -812,7 +821,7 @@ export default function MonthBook({
                 {totals!.expenseCount > 0 && (
                   <>
                     <strong className="balance-amount">
-                      {money(Math.abs(outstanding))}
+                      <AnimatedMoney value={Math.abs(outstanding)} enter />
                     </strong>
                     <p>
                       {month.status === "open"
@@ -833,15 +842,21 @@ export default function MonthBook({
                       <dl>
                         <div>
                           <dt>Costs covered</dt>
-                          <dd>{money(totals!.paid[i])}</dd>
+                          <dd>
+                            <AnimatedMoney value={totals!.paid[i]} enter />
+                          </dd>
                         </div>
                         <div>
                           <dt>Share of costs</dt>
-                          <dd>{money(totals!.shares[i])}</dd>
+                          <dd>
+                            <AnimatedMoney value={totals!.shares[i]} enter />
+                          </dd>
                         </div>
                         <div>
                           <dt>Confirmed money sent</dt>
-                          <dd>{money(totals!.sent[i])}</dd>
+                          <dd>
+                            <AnimatedMoney value={totals!.sent[i]} enter />
+                          </dd>
                         </div>
                       </dl>
                     </div>

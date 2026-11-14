@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedMoney } from "@/components/motion";
 import {
   currentMonth,
   currentSettlement,
@@ -168,7 +169,12 @@ export default function Overview({
           </p>
           {focus && (
             <div className="focus-facts">
-              <strong>{money(focus.proposal?.amount ?? focus.amount)}</strong>
+              <strong>
+                <AnimatedMoney
+                  value={focus.proposal?.amount ?? focus.amount}
+                  enter
+                />
+              </strong>
               <span>
                 {focus.status === "agreed" ? (
                   <>
@@ -268,7 +274,9 @@ export default function Overview({
           <div className="money-panel-totals">
             <div>
               <span>Monthly shared costs</span>
-              <strong>{money(total)}</strong>
+              <strong>
+                <AnimatedMoney value={total} enter />
+              </strong>
             </div>
             <span className={"status-tag " + (agreed ? "green" : "")}>
               {agreed ? "Confirmed together" : "Ready to review"}
@@ -292,7 +300,7 @@ export default function Overview({
                         </span>
                         <strong>{name}</strong>
                         <span>
-                          {money(remaining)}
+                          <AnimatedMoney value={remaining} enter />
                           <small>projected after plans</small>
                         </span>
                       </div>
@@ -380,7 +388,10 @@ export default function Overview({
                     )}
                   </span>
                   <strong>
-                    {money(row.allocations[0][0] + row.allocations[0][1])}
+                    <AnimatedMoney
+                      value={row.allocations[0][0] + row.allocations[0][1]}
+                      enter
+                    />
                     <small>this month</small>
                   </strong>
                   <ArrowRight size={14} />

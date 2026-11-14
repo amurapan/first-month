@@ -1,4 +1,5 @@
 "use client";
+import { PlanAssembly } from "@/components/motion";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, LockKeyhole, Sparkles } from "lucide-react";
 import { readDraft, writeDraft, clearDraft } from "@/lib/browser-draft";
@@ -164,10 +165,11 @@ export function GuideCard({
 }: {
   text: string | null;
   busy: boolean;
-  onGenerate: () => void;
+  onGenerate: () => Promise<unknown>;
   disabled?: boolean;
   label?: string;
 }) {
+  const [generating, setGenerating] = useState(false);
   return (
     <section className="space-guide">
       <div>
@@ -193,12 +195,20 @@ export function GuideCard({
         <button
           className="button secondary"
           disabled={busy || disabled}
-          onClick={onGenerate}
+          onClick={async () => {
+            setGenerating(true);
+            try {
+              await onGenerate();
+            } finally {
+              setGenerating(false);
+            }
+          }}
         >
           {busy ? "Preparing your conversation…" : label}
           <ArrowRight size={16} />
         </button>
       )}
+      {generating && <PlanAssembly compact kind="guide" />}
     </section>
   );
 }

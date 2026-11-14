@@ -101,7 +101,12 @@ export default function SpaceApp({ id }: { id: string }) {
       requestAnimationFrame(() =>
         document
           .querySelector('[role="alert"]')
-          ?.scrollIntoView({ block: "start", behavior: "smooth" }),
+          ?.scrollIntoView({
+            block: "start",
+            behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+              ? "instant"
+              : "smooth",
+          }),
       );
   }, [error]);
   function navigate(next: Tab, decision: string | null = null) {
@@ -415,7 +420,7 @@ export default function SpaceApp({ id }: { id: string }) {
             </button>
           </div>
         )}
-        <main className="life-main">
+        <main className="life-main" key={tab + ":" + (selected || "")}>
           {error && (
             <div className="alert error" role="alert">
               <span>{error}</span>

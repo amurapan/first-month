@@ -36,8 +36,8 @@ export function HomeScene({
             y2="370"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stopColor="#c9bdb4" />
-            <stop offset="1" stopColor="#887d75" />
+            <stop stopColor="#eeb196" />
+            <stop offset="1" stopColor="#bd755b" />
           </linearGradient>
           <linearGradient
             id={id + "floor"}
@@ -110,29 +110,29 @@ export function HomeScene({
             <path d="m265 287 111-65 133 76-111 66Z" fill="#81756d" />
             <path
               d="m273 273 102-59 125 72v31l-103 61-124-72Z"
-              fill="#9b8c82"
+              fill="#b67b65"
             />
             <path
               d="m273 211 102-59 125 72v64l-103 61-124-72Z"
               fill={"url(#" + id + "seat)"}
             />
-            <path d="m273 211 13 8 88-51 112 65 14-9-125-72Z" fill="#d0c6bb" />
-            <path d="m286 219 111 64v50l-111-64Z" fill="#a79a8f" />
-            <path d="m397 283 89-50v50l-89 52Z" fill="#c2b6a9" />
-            <path d="m279 279 31-18 86 50 91-52 18 11-109 63Z" fill="#d6cabe" />
-            <path d="m286 279 21-12 72 42-21 13Z" fill="#dcd3c7" />
-            <path d="m367 327 20-12 92-53 19 11-111 64Z" fill="#e1d7c9" />
-            <path d="m267 249 20-11 20 11v49l-20 11-20-12Z" fill="#a5968a" />
+            <path d="m273 211 13 8 88-51 112 65 14-9-125-72Z" fill="#efbd9f" />
+            <path d="m286 219 111 64v50l-111-64Z" fill="#d09073" />
+            <path d="m397 283 89-50v50l-89 52Z" fill="#e6a384" />
+            <path d="m279 279 31-18 86 50 91-52 18 11-109 63Z" fill="#f2bd9d" />
+            <path d="m286 279 21-12 72 42-21 13Z" fill="#f5caae" />
+            <path d="m367 327 20-12 92-53 19 11-111 64Z" fill="#f0bc98" />
+            <path d="m267 249 20-11 20 11v49l-20 11-20-12Z" fill="#ca8a6b" />
             <path d="m267 249 20 11 20-11-20-11Z" fill="#d4c9bd" />
-            <path d="m480 287 19-11 19 11v49l-19 11-19-11Z" fill="#aa9c8f" />
-            <path d="m480 287 19 12 19-12-19-11Z" fill="#ded3c5" />
+            <path d="m480 287 19-11 19 11v49l-19 11-19-11Z" fill="#d59673" />
+            <path d="m480 287 19 12 19-12-19-11Z" fill="#f5c9a5" />
             <path
               d="m290 308 8 5v20l-8-5Zm100 58 8-5v19l-8 5Zm107-21 8-5v19l-8 5Z"
               fill="#4e4944"
             />
             <g className="scene-cushions">
-              <path d="m309 229 28 16-2 32-28-16Z" fill="#6575c5" />
-              <path d="m416 272 28-16 4 28-28 16Z" fill="#d78367" />
+              <path d="m309 229 28 16-2 32-28-16Z" fill="#dc7259" />
+              <path d="m416 272 28-16 4 28-28 16Z" fill="#d0af54" />
             </g>
           </g>
           <g className="scene-table">

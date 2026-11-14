@@ -214,7 +214,7 @@ export default function Reviews({
             <GuideCard
               text={current.guide}
               busy={busy}
-              onGenerate={() => void onGuide(current)}
+              onGenerate={() => onGuide(current)}
               label="Prepare our weekly conversation"
             />
           </details>

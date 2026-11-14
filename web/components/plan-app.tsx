@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedMoney, PlanAssembly } from "@/components/motion";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ArrowRight,
@@ -1273,7 +1274,9 @@ function ExpensesForm({
       </button>
       <div className="expense-total">
         <span>Our monthly shared budget</span>
-        <strong>{money(Math.round(total * 100))}</strong>
+        <strong>
+          <AnimatedMoney value={Math.round(total * 100)} enter />
+        </strong>
       </div>
       <div className="soft-note">
         <CircleHelp size={18} />
@@ -1365,7 +1368,7 @@ function Balance({
         <div>
           <p className="overline">ONE SHARED MONTHLY BUDGET</p>
           <strong>
-            {money(total)}
+            <AnimatedMoney value={total} enter />
             <span>/ month</span>
           </strong>
         </div>
@@ -1408,13 +1411,21 @@ function Balance({
                 <span>
                   {a.name}
                   <strong>
-                    {result ? money(result.contributionsCents[0]) : "—"}
+                    {result ? (
+                      <AnimatedMoney value={result.contributionsCents[0]} />
+                    ) : (
+                      "—"
+                    )}
                   </strong>
                 </span>
                 <span>
                   {b.name}
                   <strong>
-                    {result ? money(result.contributionsCents[1]) : "—"}
+                    {result ? (
+                      <AnimatedMoney value={result.contributionsCents[1]} />
+                    ) : (
+                      "—"
+                    )}
                   </strong>
                 </span>
               </div>
@@ -1444,7 +1455,11 @@ function Balance({
           <div>
             <span>{b.name} covers the rest</span>
             <strong>
-              {selected ? money(selected.contributionsCents[1]) : "—"}
+              {selected ? (
+                <AnimatedMoney value={selected.contributionsCents[1]} />
+              ) : (
+                "—"
+              )}
             </strong>
           </div>
         </div>
@@ -1492,7 +1507,7 @@ function Balance({
                     </span>
                   </div>
                   <p className="remaining-value">
-                    {money(selected!.remainingCents[i])}
+                    <AnimatedMoney value={selected!.remainingCents[i]} enter />
                     <span>
                       {person.refined === false
                         ? "after shared costs"
@@ -1654,12 +1669,7 @@ function Balance({
             review.
           </p>
         )}
-        {guideBusy && (
-          <div className="guide-loading" role="status">
-            <span className="loading-dot" /> Finding your common ground and the
-            questions worth asking…
-          </div>
-        )}
+        {guideBusy && <PlanAssembly compact kind="guide" />}
         {state.guide && !changed && (
           <div className="guide-output" aria-label="Your conversation guide">
             <div className="guide-heading">
@@ -1735,7 +1745,10 @@ function Agreement({
               <small>per month</small>
               {state.calculation && (
                 <p>
-                  {money(state.calculation.remainingCents[i])}{" "}
+                  <AnimatedMoney
+                    value={state.calculation.remainingCents[i]}
+                    enter
+                  />{" "}
                   {person.refined === false
                     ? "after shared costs; personal bills not included"
                     : "after their included bills"}
@@ -2035,7 +2048,8 @@ function Checkin({
         >
           <h3>How did this month go?</h3>
           <p className="muted small-text">
-            Your plan was {money(total)} in shared expenses.
+            Your plan was <AnimatedMoney value={total} enter /> in shared
+            expenses.
           </p>
           <label>
             Check-in date
