@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateBudget } from '../src/domain/budget.js';
-import { createReview, reviseReview, recordDecision } from '../src/domain/review.js';
+import { calculateBudget } from '../web/lib/domain/budget.js';
+import { createReview, reviseReview, recordDecision } from '../web/lib/domain/review.js';
 
 const initial = {
   sharedCents: 340_000,

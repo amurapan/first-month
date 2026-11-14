@@ -5,7 +5,10 @@
   "type": "module",
   "description": "Help two people agree on their first month of shared expenses.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "check:api": "node web/scripts/check-api.mjs"
   },
   "engines": {
     "node": ">=22"
