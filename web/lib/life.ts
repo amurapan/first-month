@@ -11,6 +11,13 @@ import {
 } from "./room";
 import type { Room, Role } from "./room";
 import {
+  activeResolution,
+  commitmentLedger,
+  planningMonth,
+  projectOption,
+  projectAgreement,
+} from "./domain/planning.js";
+import {
   approvalTransition,
   bothAnswersShared,
   decisionImpact,
@@ -54,6 +61,7 @@ export function decisionView(
   row: RecordRow,
   room: Room,
   role: Role,
+  decisions: HouseholdDecision[] = [],
 ): DecisionView {
   const item = JSON.parse(row.data) as HouseholdDecision,
     visible = shared(room) && bothAnswersShared(item);
@@ -62,9 +70,25 @@ export function decisionView(
     answers: redactAnswers(item, role, visible),
     revision: row.revision,
     bothAnswered: visible,
-    stale: decisionStale(item, room.planVersion),
+    stale:
+      decisionStale(item, room.planVersion) ||
+      (!!item.proposal &&
+        item.status === "open" &&
+        item.proposal.commitmentKey !==
+          commitmentLedger(
+            decisions,
+            room.expenses.map((x) => x.id),
+            item.id,
+          ).key),
     guide:
-      visible && item.guide?.key === room.planVersion + ":" + row.revision
+      visible &&
+      item.guide?.key === room.planVersion + ":" + row.revision &&
+      item.guide.contextKey ===
+        commitmentLedger(
+          decisions,
+          room.expenses.map((x) => x.id),
+          item.id,
+        ).key
         ? item.guide.text
         : null,
   };
@@ -111,10 +135,13 @@ export async function workspace(request: Request, id: string) {
       .bind(id)
       .first<{ count: number }>(),
   ]);
+  const allDecisions = decisions.results.map(
+    (x) => JSON.parse(x.data) as HouseholdDecision,
+  );
   return {
     ...view(row, room, role),
     householdDecisions: decisions.results.map((x) =>
-      decisionView(x, room, role),
+      decisionView(x, room, role, allDecisions),
     ),
     householdReviews: reviews.results.map((x) => reviewView(x, room, role)),
     decisionCount: count?.count || 0,
@@ -144,22 +171,42 @@ export async function saveRecord(
   roomRevision: number,
 ) {
   const updatedAt = new Date().toISOString();
-  const result = await database()
+  const data = JSON.stringify(item);
+  const update = database()
     .prepare(
       "UPDATE " +
         table +
         " SET data = ?, revision = revision + 1, updated_at = ? WHERE id = ? AND room_id = ? AND revision = ? AND EXISTS (SELECT 1 FROM rooms WHERE id = ? AND revision = ?)",
     )
     .bind(
-      JSON.stringify(item),
+      data,
       updatedAt,
       row.id,
       row.room_id,
       row.revision,
       row.room_id,
       roomRevision,
-    )
-    .run();
+    );
+  const result =
+    table === "household_decisions"
+      ? (
+          await database().batch([
+            update,
+            database()
+              .prepare(
+                "UPDATE rooms SET revision = revision + 1 WHERE id = ? AND revision = ? AND EXISTS (SELECT 1 FROM household_decisions WHERE id = ? AND room_id = ? AND revision = ? AND data = ?)",
+              )
+              .bind(
+                row.room_id,
+                roomRevision,
+                row.id,
+                row.room_id,
+                row.revision + 1,
+                data,
+              ),
+          ])
+        )[0]
+      : await update.run();
   if (!result.meta.changes)
     throw new HttpError(
       409,
@@ -172,20 +219,36 @@ export async function saveRecord(
     updated_at: updatedAt,
   };
 }
-export function impactFor(room: Room, item: HouseholdDecision) {
+export async function householdRecords(id: string) {
+  const rows = await database()
+    .prepare("SELECT data FROM household_decisions WHERE room_id = ?")
+    .bind(id)
+    .all<{ data: string }>();
+  return rows.results.map((x) => JSON.parse(x.data) as HouseholdDecision);
+}
+export function impactFor(
+  room: Room,
+  item: HouseholdDecision,
+  decisions: HouseholdDecision[] = [],
+  accepted = false,
+) {
   if (!item.proposal) throw new HttpError(400, "Choose an option first.");
   const a = room.partners.A,
     b = room.partners.B,
     base = calculate(room);
-  return decisionImpact({
-    ...item.proposal,
-    kind: item.kind,
+  const context = {
+    item,
+    decisions,
+    expenseIds: room.expenses.map((x) => x.id),
     incomes: [a.income, b.income],
     baseRemaining: base.remainingCents,
     refined: [a.refined !== false, b.refined !== false],
     reserves: [a.reserve, b.reserve],
     limits: [item.answers.A?.limit ?? null, item.answers.B?.limit ?? null],
-  });
+  };
+  return accepted
+    ? projectAgreement(context)
+    : projectOption(context, item.proposal);
 }
 function requireShared(room: Room) {
   if (!shared(room))
@@ -269,6 +332,17 @@ export async function mutateWorkspace(request: Request, id: string) {
         "Your partner updated this decision. Review their changes first.",
       );
     let item = JSON.parse(row.data) as HouseholdDecision;
+    const records = await householdRecords(id);
+    const contextKey = commitmentLedger(
+      records,
+      room.expenses.map((x) => x.id),
+      item.id,
+    ).key;
+    if (item.status === "completed")
+      throw new HttpError(
+        400,
+        "Completed purchases stay in your history. Start a new decision for another purchase.",
+      );
     if (
       ["completed", "archived"].includes(item.status) &&
       input.action !== "reopenDecision"
@@ -280,6 +354,7 @@ export async function mutateWorkspace(request: Request, id: string) {
         updatedAt: now,
       };
       resetProposal(item);
+      delete item.cancellation;
     } else if (input.action === "proposeDecision") {
       requireShared(room);
       if (!bothAnswersShared(item))
@@ -303,12 +378,22 @@ export async function mutateWorkspace(request: Request, id: string) {
         version: (item.proposal?.version || 0) + 1,
         author: role,
         approvals: { A: "pending", B: "pending" },
+        commitmentKey: contextKey,
       };
-      impactFor(room, item);
+      impactFor(room, item, records);
+      delete item.cancellation;
       item.status = "open";
       delete item.guide;
     } else if (input.action === "approveDecision") {
       requireShared(room);
+      if (
+        input.decision === "accepted" &&
+        item.proposal?.commitmentKey !== contextKey
+      )
+        throw new HttpError(
+          409,
+          "Other commitments or the planning month changed. Compare the updated options before agreeing.",
+        );
       item = approvalTransition(
         item,
         role,
@@ -320,8 +405,10 @@ export async function mutateWorkspace(request: Request, id: string) {
         item.status === "agreed" &&
         !item.resolutions.some((x) => x.version === item.proposal!.version)
       ) {
-        const impact = impactFor(room, item),
+        const impact = impactFor(room, item, records),
           p = item.proposal!;
+        item.activeResolutionVersion = p.version;
+        delete item.cancellation;
         item.resolutions.push({
           at: now,
           planVersion: room.planVersion,
@@ -347,13 +434,25 @@ export async function mutateWorkspace(request: Request, id: string) {
       )
         throw new HttpError(400, "Confirm a savings proposal first.");
       const savedAmount = amount.parse(input.amount),
-        impact = impactFor(room, item),
+        resolution = activeResolution(item),
         index = role === "A" ? 0 : 1;
-      if (savedAmount > impact.contributions[index])
+      if (!resolution)
+        throw new HttpError(400, "Confirm a savings proposal first.");
+      if (savedAmount > resolution.contributions[index])
         throw new HttpError(
           400,
           "Use an amount up to your agreed contribution.",
         );
+      const currentMonth = planningMonth();
+      const additions =
+        item.fundingMonth === currentMonth
+          ? item.fundedThisMonth || { A: 0, B: 0 }
+          : { A: 0, B: 0 };
+      item.fundedThisMonth = {
+        ...additions,
+        [role]: additions[role] + savedAmount - (item.funding?.[role] || 0),
+      };
+      item.fundingMonth = currentMonth;
       item.funding = {
         ...(item.funding || { A: 0, B: 0 }),
         [role]: savedAmount,
@@ -383,7 +482,7 @@ export async function mutateWorkspace(request: Request, id: string) {
           "Combine existing expense categories before adding another cost.",
         );
       const base = calculate(room),
-        impact = impactFor(room, item);
+        impact = impactFor(room, item, records);
       if (base.sharedCents + item.proposal!.amount > 100_000_000)
         throw new HttpError(
           400,
@@ -441,7 +540,7 @@ export async function mutateWorkspace(request: Request, id: string) {
           "Both people must agree to the current proposal before marking it complete.",
         );
       if (item.proposal!.months > 1) {
-        const impact = impactFor(room, item);
+        const impact = activeResolution(item)!;
         if (
           (item.funding?.A || 0) < impact.contributions[0] ||
           (item.funding?.B || 0) < impact.contributions[1]
@@ -454,10 +553,20 @@ export async function mutateWorkspace(request: Request, id: string) {
       item.status = "completed";
       item.completedAt = now;
     } else if (input.action === "archiveDecision") {
-      item.status = "archived";
+      if (activeResolution(item)) {
+        item.cancellation = { ...item.cancellation, [role]: true };
+        if (item.cancellation.A && item.cancellation.B) {
+          item.status = "archived";
+          item.activeResolutionVersion = null;
+        }
+      } else {
+        item.status = "archived";
+        item.activeResolutionVersion = null;
+      }
     } else {
       item.status = "open";
-      delete item.completedAt;
+      item.activeResolutionVersion = null;
+      delete item.cancellation;
       resetProposal(item);
     }
     if (

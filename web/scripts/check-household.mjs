@@ -44,7 +44,7 @@ let s = await mutate(A, "createDecision", {
   amount: 90001,
   context: "Input, not generated output.",
 });
-const d = s.householdDecisions.find((x) => x.title === "TEST sofa").id;
+let d = s.householdDecisions.find((x) => x.title === "TEST sofa").id;
 const get = (s) => s.householdDecisions.find((x) => x.id === d);
 async function change(key, action, payload = {}, expected = 200) {
   const current = await read(key),
@@ -127,11 +127,22 @@ await change(
   { answer: { limit: 0, timing: "now", note: "", shared: true } },
   400,
 );
-s = await change(A, "reopenDecision");
-assert.equal(get(s).status, "open");
-assert.deepEqual(get(s).proposal.approvals, { A: "pending", B: "pending" });
+await change(A, "reopenDecision", {}, 400);
+assert.deepEqual(get(s).fundedThisMonth, { A: 60001, B: 30000 });
+// A different purchase has its own history; a completed purchase cannot spend again.
+s = await mutate(A, "createDecision", {
+  title: "TEST replacement",
+  kind: "purchase",
+  amount: 90001,
+  context: "",
+});
+d = s.householdDecisions.find((x) => x.title === "TEST replacement").id;
+for (const key of [A, B])
+  await change(key, "answerDecision", {
+    answer: { limit: 60001, timing: "save", note: "", shared: true },
+  });
 s = await change(A, "proposeDecision", { proposal });
-const pv = get(s).proposal.version;
+let pv = get(s).proposal.version;
 await change(A, "approveDecision", {
   proposalVersion: pv,
   decision: "accepted",
@@ -140,6 +151,40 @@ await change(B, "approveDecision", {
   proposalVersion: pv,
   decision: "accepted",
 });
+// Confirming a replacement uses its new split, not the previous frozen shares.
+s = await change(A, "proposeDecision", {
+  proposal: { ...proposal, amount: 120000, months: 4 },
+});
+pv = get(s).proposal.version;
+for (const key of [A, B])
+  s = await change(key, "approveDecision", {
+    proposalVersion: pv,
+    decision: "accepted",
+  });
+assert.deepEqual(get(s).resolutions.at(-1).contributions, [80000, 40000]);
+assert.deepEqual(get(s).resolutions.at(-1).firstMonth, [20000, 10000]);
+// A replacement proposal retains the old accepted obligation. Cancellation needs two people.
+s = await change(A, "proposeDecision", {
+  proposal: { ...proposal, months: 4 },
+});
+assert.equal(get(s).status, "open");
+assert.equal(get(s).activeResolutionVersion, pv);
+s = await change(A, "archiveDecision");
+assert.equal(get(s).status, "open");
+assert.deepEqual(get(s).cancellation, { A: true });
+s = await change(B, "archiveDecision");
+assert.equal(get(s).status, "archived");
+assert.equal(get(s).activeResolutionVersion, null);
+s = await change(A, "reopenDecision");
+assert.equal(get(s).status, "open");
+assert.equal(get(s).activeResolutionVersion, null);
+s = await change(A, "proposeDecision", { proposal });
+const nextVersion = get(s).proposal.version;
+for (const key of [A, B])
+  await change(key, "approveDecision", {
+    proposalVersion: nextVersion,
+    decision: "accepted",
+  });
 await roomMutate(A, "expenses", {
   expenses: [{ id: "all", label: "All monthly costs", amount: 350000 }],
 });
@@ -293,6 +338,92 @@ assert.equal(
   "completed",
 );
 assert.equal(s.planHistory[0].total, 350000);
+// Different decision IDs still share one financial revision. Two final approvals
+// based on one available balance cannot silently reserve that money twice.
+const parallelIds = [];
+async function rowChange(key, id, action, payload = {}, expected = 200) {
+  const current = await read(key),
+    row = current.householdDecisions.find((x) => x.id === id);
+  return call(
+    space,
+    key,
+    {
+      action,
+      id,
+      roomRevision: current.revision,
+      revision: row.revision,
+      ...payload,
+    },
+    expected,
+  );
+}
+for (let n = 0; n < 2; n++) {
+  s = await mutate(A, "createDecision", {
+    title: "TEST concurrent " + n,
+    kind: "purchase",
+    amount: 12000,
+    context: "",
+  });
+  const id = s.householdDecisions.find(
+    (x) => x.title === "TEST concurrent " + n,
+  ).id;
+  parallelIds.push(id);
+  for (const key of [A, B])
+    await rowChange(key, id, "answerDecision", {
+      answer: { limit: 20000, timing: "now", note: "", shared: true },
+    });
+  await rowChange(A, id, "proposeDecision", {
+    proposal: { ...proposal, amount: 12000, months: 1 },
+  });
+  await rowChange(A, id, "approveDecision", {
+    proposalVersion: 1,
+    decision: "accepted",
+  });
+}
+s = await read(B);
+const races = await Promise.all(
+  parallelIds.map(async (id) => {
+    const row = s.householdDecisions.find((x) => x.id === id);
+    const response = await fetch(base + space, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + B,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "approveDecision",
+        id,
+        roomRevision: s.revision,
+        revision: row.revision,
+        proposalVersion: 1,
+        decision: "accepted",
+      }),
+    });
+    return { id, status: response.status };
+  }),
+);
+assert.deepEqual(races.map((x) => x.status).sort(), [200, 409]);
+checks++;
+const loser = races.find((x) => x.status === 409).id;
+s = await read(B);
+assert.equal(s.householdDecisions.find((x) => x.id === loser).stale, true);
+await rowChange(
+  B,
+  loser,
+  "approveDecision",
+  { proposalVersion: 1, decision: "accepted" },
+  409,
+);
+s = await rowChange(B, loser, "proposeDecision", {
+  proposal: { ...proposal, amount: 12000, months: 2 },
+});
+const revised = s.householdDecisions.find((x) => x.id === loser).proposal;
+assert.deepEqual(revised.approvals, { A: "pending", B: "pending" });
+for (const key of [A, B])
+  await rowChange(key, loser, "approveDecision", {
+    proposalVersion: revised.version,
+    decision: "accepted",
+  });
 // Withdrawing financial sharing removes all peer private answers and generated recaps.
 s = await call(path, B);
 await roomMutate(B, "profile", { profile: { ...s.self, shared: false } });

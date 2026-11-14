@@ -1,22 +1,20 @@
 "use client";
+import { useMemo, useState } from "react";
 import {
   ArrowRight,
+  ArrowUpRight,
   CalendarDays,
   Check,
   CheckCheck,
-  ChevronRight,
   Clock,
-  HeartHandshake,
-  House,
   LockKeyhole,
   Plus,
-  ShoppingBag,
-  Wallet,
 } from "lucide-react";
 import type { SpaceState } from "@/lib/life-types";
-import { fullDate, money, names } from "./shared";
+import { ledgerFor, optionsFor } from "@/lib/planning";
+import { HomeScene } from "@/components/home-scene";
 import QuickComparison from "@/components/quick-comparison";
-import { useState } from "react";
+import { fullDate, money, names } from "./shared";
 export default function Overview({
   state,
   busy,
@@ -36,45 +34,71 @@ export default function Overview({
   onShare: () => Promise<unknown>;
 }) {
   const pair = names(state),
-    total = state.expenses.reduce((n, x) => n + x.amount, 0),
-    agreed =
-      state.decisions.A === "accepted" && state.decisions.B === "accepted";
+    [method, setMethod] = useState(state.estimate?.method || "equal");
+  const ledger = useMemo(() => ledgerFor(state), [state]);
   const active = state.householdDecisions.filter(
-      (x) => !["completed", "archived"].includes(x.status),
-    ),
-    review = state.householdReviews.find((x) => x.week === state.currentWeek),
-    yourReview = review?.answers[state.role];
-  const [method, setMethod] = useState(state.estimate?.method || "equal");
-  const due = active.filter(
-    (x) =>
-      x.stale ||
-      !x.answers[state.role]?.shared ||
-      (x.bothAnswered &&
-        (!x.proposal || x.proposal.approvals[state.role] !== "accepted")),
+    (x) => !["completed", "archived"].includes(x.status),
   );
-  const completed = state.householdDecisions.filter(
-    (x) => x.status === "completed",
-  ).length;
+  const focus =
+    active.find(
+      (x) =>
+        x.stale ||
+        !x.answers[state.role]?.shared ||
+        (!x.proposal && x.bothAnswered) ||
+        x.proposal?.approvals[state.role] === "pending",
+    ) || active[0];
+  const review = state.householdReviews.find(
+    (x) => x.week === state.currentWeek,
+  );
+  const agreed =
+    state.decisions.A === "accepted" && state.decisions.B === "accepted";
+  const total = state.expenses.reduce((sum, x) => sum + x.amount, 0);
+  let suggestion = "";
+  if (focus?.bothAnswered && state.calculation) {
+    try {
+      const result = optionsFor(state, focus);
+      suggestion =
+        result.options.find((x) => x.id === result.suggestedId)?.title ||
+        "Compare your options";
+    } catch {}
+  }
+  const monthlyPeople =
+    state.role === "A"
+      ? [state.self, state.partner]
+      : [state.partner, state.self];
   return (
     <>
-      <div className="life-heading">
-        <p className="eyebrow">YOUR EVERYDAY, TOGETHER</p>
-        <h1>A home for the money conversations.</h1>
-        <p>
-          Your plan is a starting point. Make the next decision together, then
-          come back to what you agreed.
-        </p>
+      <div className="home-greeting">
+        <div>
+          <p className="eyebrow">
+            {state.demo ? "YOUR SAMPLE HOUSEHOLD" : "YOUR SHARED HOME"}
+            <span>{pair.join(" + ")}</span>
+          </p>
+          <h1>
+            A little more
+            <br />
+            <span>on the same page.</span>
+          </h1>
+        </div>
+        <button
+          className="button secondary"
+          onClick={() => onNavigate("decisions", "new")}
+        >
+          <Plus size={17} />
+          New decision
+        </button>
       </div>
       {!state.joined && (
-        <section className="welcome-invite">
-          <div className="section-icon">
-            <HeartHandshake size={27} />
+        <section className="new-invite-strip">
+          <div className="invite-duo">
+            <span>{state.self.name[0]}</span>
+            <span>+</span>
           </div>
           <div>
-            <h2>Make room for {state.partner.name}.</h2>
+            <h2>Your side is a start.</h2>
             <p>
-              Invite them to add their own numbers and perspective. You can
-              start a decision while they get settled.
+              Invite {state.partner.name} to add theirs. You can start a
+              decision now.
             </p>
           </div>
           <button className="button primary" disabled={busy} onClick={onInvite}>
@@ -89,8 +113,8 @@ export default function Overview({
           <div>
             <strong>Your income is still private.</strong>
             <p>
-              Sharing makes your saved income and optional details visible once
-              your partner also shares. It does not approve any plan.
+              Sharing shows your saved income and optional details after your
+              partner also shares. It does not approve a plan.
             </p>
           </div>
           <button
@@ -106,218 +130,294 @@ export default function Overview({
         <div className="notice">
           <Clock size={18} />
           <p>
-            Your side is ready. {state.partner.name} can share theirs when
-            they’re comfortable. Your estimates stay separate from their
-            answers.
+            Your side is ready. {state.partner.name} can share their own numbers
+            when they’re comfortable.
           </p>
         </div>
       )}
-      <div className="home-metrics">
-        <div>
-          <span>Shared monthly plan</span>
-          <strong>{money(total)}</strong>
-          <small>
-            {agreed ? "Confirmed by both of you" : "Ready to review together"}
-          </small>
-        </div>
-        <button onClick={() => onNavigate("decisions")}>
-          <span>Open conversations</span>
-          <strong>{active.length.toString().padStart(2, "0")}</strong>
-          <small>
-            {due.length
-              ? due.length + " waiting for your next step"
-              : "Space for your next decision"}
-            <ArrowRight size={14} />
-          </small>
-        </button>
-        <button onClick={() => onNavigate("reviews")}>
-          <span>This week’s check-in</span>
-          <strong>
-            {review?.bothAnswered
-              ? "Together"
-              : yourReview?.shared
-                ? "Your side is in"
-                : "A little time"}
-          </strong>
-          <small>
-            {review?.action?.completed
-              ? "Your action is complete"
-              : review?.bothAnswered
-                ? "Choose one thing to carry forward"
-                : "Two short answers each"}
-            <ArrowRight size={14} />
-          </small>
-        </button>
-      </div>
-      <div className="home-main-grid">
-        <section className="surface next-step-card">
-          <div className="section-label">
-            <span className="overline">A GOOD NEXT STEP</span>
-            <span className="small-flower">✳</span>
-          </div>
-          <h2>
-            {due.length
-              ? "A conversation needs your side."
-              : active.length
-                ? "Keep the conversation moving."
-                : "What’s on your minds?"}
-          </h2>
-          <p>
-            {due.length
-              ? "Take a moment to read, add your perspective, or review what changed."
-              : "A new sofa. A shared subscription. A change in what feels comfortable. Start with the decision you actually need to make."}
+      <div className="home-focus">
+        <div className="home-focus-copy">
+          <p className="eyebrow">
+            {focus ? "YOUR NEXT CONVERSATION" : "ROOM FOR YOUR NEXT CHAPTER"}
           </p>
-          {due.slice(0, 3).map((item) => (
-            <button
-              className="next-step-row"
-              key={item.id}
-              onClick={() => onNavigate("decisions", item.id)}
-            >
-              <span className="section-icon small">
-                <ShoppingBag size={18} />
-              </span>
+          <h2>{focus ? focus.title : "What’s next\nfor your home?"}</h2>
+          <p>
+            {focus
+              ? focus.status === "agreed"
+                ? "You both chose a plan. Keep an eye on the next step."
+                : focus.bothAnswered
+                  ? "Both perspectives are in. See where they meet, and compare the ways forward."
+                  : "A little space for each of you to say what feels comfortable."
+              : "A purchase, a shared subscription, or a goal you want to make room for. Start with what’s actually on your minds."}
+          </p>
+          {focus && (
+            <div className="focus-facts">
+              <strong>{money(focus.proposal?.amount ?? focus.amount)}</strong>
               <span>
-                <strong>{item.title}</strong>
-                <small>
-                  {item.stale
-                    ? "Your monthly plan changed — revisit the numbers"
-                    : !item.answers[state.role]?.shared
-                      ? "Add your perspective"
-                      : !item.proposal
-                        ? "Compare your options"
-                        : "Review the proposal"}
-                </small>
+                {focus.status === "agreed" ? (
+                  <>
+                    <CheckCheck size={16} />
+                    Agreed together
+                  </>
+                ) : (
+                  suggestion || "Add both perspectives"
+                )}
               </span>
-              <ChevronRight size={18} />
-            </button>
-          ))}
+            </div>
+          )}
           <button
             className="button primary"
-            onClick={() => onNavigate("decisions", "new")}
+            onClick={() => onNavigate("decisions", focus?.id || "new")}
           >
-            <Plus size={17} />
-            Start a decision
+            {focus
+              ? focus.status === "agreed"
+                ? "Open our plan"
+                : focus.bothAnswered
+                  ? "See our options"
+                  : "Add my perspective"
+              : "Start a decision"}
+            <ArrowUpRight size={18} />
           </button>
-          <span className="fine-print">
-            One purchase or recurring cost. Both perspectives. A clear next
-            step.
+        </div>
+        <div className="home-focus-scene">
+          <HomeScene compact phase={focus?.status === "agreed" ? 2 : 1} />
+          <span className="scene-caption">
+            Make room for the life you’re building.
           </span>
-        </section>
-        <section className="weekly-card">
-          <CalendarDays size={28} />
-          <p className="overline">SMALL CHECK-INS. FEWER SURPRISES.</p>
-          <h2>How is this week feeling?</h2>
-          <p>
-            What worked? What would you change? Answer separately, then choose
-            one action together.
-          </p>
-          <div className="weekly-partners">
-            {(["A", "B"] as const).map((side, i) => (
-              <span key={side}>
-                <span className={"avatar " + (i ? "peach" : "")}>
-                  {pair[i][0]}
+        </div>
+      </div>
+      <div className="home-below-grid">
+        <section className="home-money-panel">
+          <div className="home-section-top">
+            <div>
+              <p className="eyebrow">YOUR MONTHLY PICTURE</p>
+              <h2>Every plan counts.</h2>
+            </div>
+            <a
+              className="round-link"
+              href={planLink(2)}
+              aria-label="Open monthly plan"
+            >
+              <ArrowUpRight size={21} />
+            </a>
+          </div>
+          <div className="money-panel-totals">
+            <div>
+              <span>Monthly shared costs</span>
+              <strong>{money(total)}</strong>
+            </div>
+            <span className={"status-tag " + (agreed ? "green" : "")}>
+              {agreed ? "Confirmed together" : "Ready to review"}
+            </span>
+          </div>
+          {state.bothShared && state.calculation ? (
+            <>
+              <div className="home-budget-people">
+                {pair.map((name, i) => {
+                  const person = monthlyPeople[i],
+                    income = person.income || 0,
+                    planned = state.calculation!.remainingCents[i],
+                    other = ledger.totals[0][i],
+                    remaining = planned - other,
+                    included = income - planned;
+                  return (
+                    <article key={i}>
+                      <div>
+                        <span className={"person-orb person-" + i}>
+                          {name[0]}
+                        </span>
+                        <strong>{name}</strong>
+                        <span>
+                          {money(remaining)}
+                          <small>projected after plans</small>
+                        </span>
+                      </div>
+                      <div
+                        className="budget-track"
+                        aria-label={name + " projected monthly allocation"}
+                      >
+                        <span
+                          className="budget-costs"
+                          style={{
+                            width:
+                              Math.max(
+                                0,
+                                Math.min(
+                                  100,
+                                  (included / Math.max(1, income)) * 100,
+                                ),
+                              ) + "%",
+                          }}
+                        />
+                        <span
+                          className={"person-" + i}
+                          style={{
+                            width:
+                              Math.max(
+                                0,
+                                Math.min(
+                                  100,
+                                  (other / Math.max(1, income)) * 100,
+                                ),
+                              ) + "%",
+                          }}
+                        />
+                      </div>
+                      <p>
+                        {money(other)} in other agreed plans
+                        {person.refined === false
+                          ? " · Personal costs not added"
+                          : ""}
+                        {remaining < 0 ? " · Plans exceed entered income" : ""}
+                      </p>
+                    </article>
+                  );
+                })}
+              </div>
+              <div className="budget-legend">
+                <span>
+                  <i />
+                  Included monthly costs
                 </span>
                 <span>
-                  {pair[i]}
-                  <small>
-                    {review?.answers[side]?.shared
-                      ? "Ready to share"
-                      : "A moment to reflect"}
-                  </small>
+                  <i />
+                  Agreed plans
                 </span>
-                {review?.answers[side]?.shared && <Check size={16} />}
-              </span>
+                <span>
+                  <i />
+                  Projected remainder
+                </span>
+              </div>
+              <p className="fine-print">
+                A projection from the numbers you entered, not your bank
+                balance.
+              </p>
+            </>
+          ) : (
+            <p className="budget-waiting">
+              Both incomes appear here once you each choose to share. Until
+              then, your own starting comparison stays private.
+            </p>
+          )}
+          {ledger.rows.length > 0 && (
+            <div className="home-commitments">
+              <h3>Already in the picture</h3>
+              {ledger.rows.slice(0, 4).map((row) => (
+                <button
+                  key={row.id}
+                  onClick={() => onNavigate("decisions", row.id)}
+                >
+                  <span>
+                    <i />
+                    {row.title}
+                    {row.overdue && <small>Overdue funding to resolve</small>}
+                    {row.retained && (
+                      <small>Earlier agreement still included</small>
+                    )}
+                  </span>
+                  <strong>
+                    {money(row.allocations[0][0] + row.allocations[0][1])}
+                    <small>this month</small>
+                  </strong>
+                  <ArrowRight size={14} />
+                </button>
+              ))}
+            </div>
+          )}
+          <a className="text-button" href={planLink(3)}>
+            Review our monthly plan
+            <ArrowRight size={16} />
+          </a>
+        </section>
+        <section className="home-week-panel">
+          <div className="week-circle">
+            <CalendarDays size={28} />
+          </div>
+          <p className="eyebrow">A SMALL WEEKLY RITUAL</p>
+          <h2>
+            {review?.action?.completed
+              ? "One small thing,\nfollowed through."
+              : review?.action
+                ? "A next step\nyou can come back to."
+                : "How did\nthis week feel?"}
+          </h2>
+          <p>
+            {review?.action?.text ||
+              "What worked? What changed? A short check-in makes room for both answers."}
+          </p>
+          {review?.action && (
+            <span className="week-action-date">
+              {review.action.completed ? (
+                <>
+                  <CheckCheck size={16} />
+                  Completed together
+                </>
+              ) : (
+                <>Revisit {fullDate(review.action.due)}</>
+              )}
+            </span>
+          )}
+          <div className="week-person-status">
+            {(["A", "B"] as const).map((side, i) => (
+              <div key={side}>
+                <span className={"person-orb person-" + i}>{pair[i][0]}</span>
+                <span>{pair[i]}</span>
+                {review?.answers[side]?.shared ? (
+                  <span>
+                    <Check size={14} />
+                    Shared
+                  </span>
+                ) : (
+                  <span>Still to come</span>
+                )}
+              </div>
             ))}
           </div>
           <button
             className="button secondary"
             onClick={() => onNavigate("reviews")}
           >
-            {yourReview?.shared ? "Open our check-in" : "Add my check-in"}
+            {review?.bothAnswered ? "Open our check-in" : "Take a moment"}
             <ArrowRight size={17} />
           </button>
         </section>
       </div>
       {state.estimate && !state.bothShared && (
-        <section className="home-estimate">
-          <div className="section-heading">
-            <div>
-              <p className="overline">YOUR STARTING NUMBERS</p>
-              <h2>A first look, before you agree.</h2>
-            </div>
-            <a className="text-button" href={planLink(2)}>
-              Edit assumptions
-              <ArrowRight size={15} />
-            </a>
-          </div>
+        <details className="home-starting-comparison">
+          <summary>
+            Your private starting comparison<span>Based on your estimate</span>
+          </summary>
           <QuickComparison
             income={state.self.income}
             partnerIncome={state.estimate.partnerIncome}
             total={total}
             method={method}
             onMethod={setMethod}
-            names={pair}
           />
-        </section>
+          <a href={planLink(2)} className="text-button">
+            Edit this comparison
+            <ArrowRight size={15} />
+          </a>
+        </details>
       )}
-      {state.bothShared && state.calculation && (
-        <section className="home-plan surface">
-          <div className="section-heading">
-            <div>
-              <p className="overline">YOUR MONTHLY FOUNDATION</p>
-              <h2>
-                {agreed
-                  ? "The plan you both said yes to."
-                  : "Your current proposal."}
-              </h2>
-            </div>
-            <span className={"status-tag " + (agreed ? "green" : "")}>
-              {agreed ? "Agreed together" : "Awaiting both confirmations"}
-            </span>
-          </div>
-          <div className="home-plan-people">
-            {pair.map((name, i) => (
-              <div key={i}>
-                <span className={"avatar " + (i ? "peach" : "")}>
-                  {name[0]}
-                </span>
-                <span>
-                  {name}
-                  <strong>
-                    {money(state.calculation!.contributionsCents[i])}
-                    <small>/ month</small>
-                  </strong>
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="home-plan-footer">
-            <span>
-              <CalendarDays size={16} />
-              Next review {fullDate(state.plan.reviewDate)}
-            </span>
-            <a className="button secondary" href={planLink(agreed ? 3 : 2)}>
-              {agreed ? "Open our agreement" : "Review our monthly plan"}
-              <ArrowRight size={17} />
-            </a>
-          </div>
-        </section>
-      )}
-      <section className="home-memory">
+      <div className="home-history-link">
         <div>
-          <CheckCheck size={22} />
-          <h3>Decisions you can come back to.</h3>
-          <p>
-            {completed
-              ? `${completed} completed ${completed === 1 ? "decision" : "decisions"} in your shared history. Keep the reason behind the choice, not just the amount.`
-              : "Your confirmed choices will live here — including who contributes, when, and what you both wanted to protect."}
-          </p>
+          <CheckCheck size={25} />
+          <h3>The things you’ve decided together.</h3>
         </div>
+        <p>
+          {state.planHistory.length
+            ? state.planHistory.length +
+              " accepted monthly " +
+              (state.planHistory.length === 1 ? "plan" : "plans") +
+              " in your history."
+            : "Your accepted plans and completed decisions stay here as life changes."}
+        </p>
         <button className="text-button" onClick={() => onNavigate("decisions")}>
-          See our decisions
-          <ArrowRight size={16} />
+          Open our decisions
+          <ArrowRight size={17} />
         </button>
-      </section>
+      </div>
     </>
   );
 }

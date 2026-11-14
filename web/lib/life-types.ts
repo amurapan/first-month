@@ -18,6 +18,7 @@ export type DecisionProposal = {
   version: number;
   author: Role;
   approvals: Record<Role, "pending" | "accepted" | "changes">;
+  commitmentKey?: string;
 };
 export type DecisionResolution = {
   at: string;
@@ -48,7 +49,11 @@ export type HouseholdDecision = {
   resolutions: DecisionResolution[];
   completedAt?: string;
   funding?: Record<Role, number>;
-  guide?: { key: string; text: string };
+  fundingMonth?: string;
+  fundedThisMonth?: Record<Role, number>;
+  activeResolutionVersion?: number | null;
+  cancellation?: Partial<Record<Role, boolean>>;
+  guide?: { key: string; text: string; contextKey?: string };
   guideCount?: number;
 };
 export type DecisionView = Omit<HouseholdDecision, "answers" | "guide"> & {

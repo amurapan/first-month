@@ -8,7 +8,14 @@ import {
   limit,
   shared,
 } from "./room";
-import { getRecord, impactFor, saveRecord, workspace } from "./life";
+import {
+  getRecord,
+  householdRecords,
+  impactFor,
+  saveRecord,
+  workspace,
+} from "./life";
+import { commitmentLedger } from "./domain/planning.js";
 import { bothAnswersShared } from "./domain/life.js";
 import { generateGuide, guideProvider, GuideError } from "./guide.js";
 import type { HouseholdDecision, HouseholdReview } from "./life-types";
@@ -26,12 +33,25 @@ export async function conversation(request: Request, id: string) {
     input.kind === "decision" ? "household_decisions" : "household_reviews";
   const row = await getRecord(table, id, String(input.id)),
     item = JSON.parse(row.data) as HouseholdDecision | HouseholdReview;
+  const records = input.kind === "decision" ? await householdRecords(id) : [];
+  const contextKey =
+    input.kind === "decision"
+      ? commitmentLedger(
+          records,
+          room.expenses.map((x) => x.id),
+          row.id,
+        ).key
+      : undefined;
   if (!bothAnswersShared(item))
     throw new HttpError(
       400,
       "Both people need to share their answers before making a conversation recap.",
     );
-  if (item.guide?.key === room.planVersion + ":" + row.revision)
+  if (
+    item.guide?.key === room.planVersion + ":" + row.revision &&
+    (input.kind !== "decision" ||
+      (item as HouseholdDecision).guide?.contextKey === contextKey)
+  )
     return workspace(request, id);
   if (input.revision !== row.revision)
     throw new HttpError(
@@ -65,7 +85,9 @@ export async function conversation(request: Request, id: string) {
   let facts: unknown;
   if (input.kind === "decision") {
     const decision = item as HouseholdDecision;
-    const impact = decision.proposal ? impactFor(room, decision) : null;
+    const impact = decision.proposal
+      ? impactFor(room, decision, records, decision.status === "agreed")
+      : null;
     facts = {
       title: decision.title,
       context: decision.context,
@@ -74,6 +96,10 @@ export async function conversation(request: Request, id: string) {
       method: decision.proposal?.method,
       withinStatedLimits: impact?.withinLimit,
       remainingPreferencesMet: impact?.preferenceMet,
+      otherAgreedCommitments: impact?.ledger.rows.map((x) => ({
+        title: x.title,
+        overdue: x.overdue,
+      })),
     };
   } else {
     facts = {
@@ -119,17 +145,30 @@ export async function conversation(request: Request, id: string) {
   // A changed answer, withdrawn consent, or updated budget must never receive a stale recap.
   const latest = await authorize(request, id),
     fresh = await getRecord(table, id, row.id);
+  const latestContext =
+    input.kind === "decision"
+      ? commitmentLedger(
+          await householdRecords(id),
+          latest.room.expenses.map((x) => x.id),
+          row.id,
+        ).key
+      : undefined;
   if (
     latest.room.planVersion !== room.planVersion ||
     !shared(latest.room) ||
-    fresh.revision !== claimed.revision
+    fresh.revision !== claimed.revision ||
+    latestContext !== contextKey
   )
     throw new HttpError(
       409,
       "The conversation changed while this was being prepared. Review the latest answers and try again.",
     );
   const updated = JSON.parse(fresh.data) as HouseholdDecision | HouseholdReview;
-  updated.guide = { key: room.planVersion + ":" + (fresh.revision + 1), text };
+  updated.guide = {
+    key: room.planVersion + ":" + (fresh.revision + 1),
+    text,
+    ...(contextKey ? { contextKey } : {}),
+  };
   await saveRecord(table, fresh, updated, latest.row.revision);
   return workspace(request, id);
 }

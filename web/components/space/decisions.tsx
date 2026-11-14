@@ -21,7 +21,8 @@ import type {
   SpaceState,
 } from "@/lib/life-types";
 import type { Profile } from "@/lib/room";
-import { decisionImpact } from "@/lib/domain/life.js";
+import { impactForOption, impactForAgreement } from "@/lib/planning";
+import DecisionOptions, { OptionImpact } from "./decision-options";
 import { inputCents } from "@/lib/domain/preview.js";
 import {
   afterDays,
@@ -314,8 +315,18 @@ function DecisionDetail({
   const pair = names(state),
     own = item.answers[state.role] as DecisionAnswer | undefined;
   const [editing, setEditing] = useState(!own),
-    [comparing, setComparing] = useState(!item.proposal);
+    [comparing, setComparing] = useState(!item.proposal),
+    [custom, setCustom] = useState(false);
   const closed = ["completed", "archived"].includes(item.status);
+  let proposalImpact: ReturnType<typeof impactForOption> | null = null;
+  if (item.proposal && item.bothAnswered && !closed) {
+    try {
+      proposalImpact =
+        item.status === "agreed"
+          ? impactForAgreement(state, item)
+          : impactForOption(state, item, item.proposal);
+    } catch {}
+  }
   return (
     <>
       <button className="text-button back-link" onClick={() => onSelect(null)}>
@@ -361,8 +372,18 @@ function DecisionDetail({
         <div className="notice warning">
           <Clock size={20} />
           <p>
-            Your monthly plan changed after this proposal. Compare the updated
-            numbers and ask both people to confirm again.
+            Your budget, other commitments, or the planning month changed.
+            Compare the updated numbers before confirming this proposal.
+          </p>
+        </div>
+      )}
+      {item.status === "open" && item.activeResolutionVersion && (
+        <div className="notice">
+          <Clock size={18} />
+          <p>
+            Your earlier agreement stays in the shared plan while you review
+            these changes. It is replaced only after both people approve the new
+            terms.
           </p>
         </div>
       )}
@@ -390,88 +411,113 @@ function DecisionDetail({
           onError={onError}
         />
       ) : (
-        <section className="surface perspectives">
-          <div className="section-heading">
-            <div>
-              <p className="overline">BOTH SIDES OF THE CONVERSATION</p>
-              <h2>What matters to each of you.</h2>
+        <details className="decision-perspectives" open={!item.bothAnswered}>
+          <summary>
+            Your two perspectives
+            <span>
+              {item.bothAnswered ? "Both shared" : "Waiting for both sides"}
+            </span>
+          </summary>
+          <section className="surface perspectives">
+            <div className="section-heading">
+              <div>
+                <p className="overline">BOTH SIDES OF THE CONVERSATION</p>
+                <h2>What matters to each of you.</h2>
+              </div>
+              {!closed && (
+                <button
+                  className="text-button"
+                  onClick={() => setEditing(true)}
+                >
+                  Edit my answer
+                </button>
+              )}
             </div>
-            {!closed && (
-              <button className="text-button" onClick={() => setEditing(true)}>
-                Edit my answer
-              </button>
-            )}
-          </div>
-          <div className="perspective-grid">
-            {(["A", "B"] as const).map((side, i) => {
-              const answer = item.answers[side],
-                visible = answer && "timing" in answer;
-              return (
-                <article key={side}>
-                  <span className={"avatar " + (i ? "peach" : "")}>
-                    {pair[i][0]}
-                  </span>
-                  <h3>{pair[i]}</h3>
-                  {visible ? (
-                    <>
-                      <span className="status-tag">
-                        {answer.timing === "now"
-                          ? "Would prefer sooner"
-                          : answer.timing === "save"
-                            ? "Would rather save first"
-                            : "Flexible on timing"}
-                      </span>
-                      <p className="perspective-limit">
-                        {answer.limit === null
-                          ? "No monthly comfort amount added"
-                          : money(answer.limit) + " / month feels comfortable"}
+            <div className="perspective-grid">
+              {(["A", "B"] as const).map((side, i) => {
+                const answer = item.answers[side],
+                  visible = answer && "timing" in answer;
+                return (
+                  <article key={side}>
+                    <span className={"avatar " + (i ? "peach" : "")}>
+                      {pair[i][0]}
+                    </span>
+                    <h3>{pair[i]}</h3>
+                    {visible ? (
+                      <>
+                        <span className="status-tag">
+                          {answer.timing === "now"
+                            ? "Would prefer sooner"
+                            : answer.timing === "save"
+                              ? "Would rather save first"
+                              : "Flexible on timing"}
+                        </span>
+                        <p className="perspective-limit">
+                          {answer.limit === null
+                            ? "No monthly comfort amount added"
+                            : money(answer.limit) +
+                              " / month feels comfortable"}
+                        </p>
+                        <p>{answer.note || "No extra note added."}</p>
+                        {!answer.shared && (
+                          <small>
+                            <LockKeyhole size={12} />
+                            Only you can see this answer
+                          </small>
+                        )}
+                      </>
+                    ) : (
+                      <p>
+                        {answer
+                          ? "Their answer is saved privately. It appears after both people share."
+                          : "A little space for their perspective."}
                       </p>
-                      <p>{answer.note || "No extra note added."}</p>
-                      {!answer.shared && (
-                        <small>
-                          <LockKeyhole size={12} />
-                          Only you can see this answer
-                        </small>
-                      )}
-                    </>
-                  ) : (
-                    <p>
-                      {answer
-                        ? "Their answer is saved privately. It appears after both people share."
-                        : "A little space for their perspective."}
-                    </p>
-                  )}
-                </article>
-              );
-            })}
-          </div>
-          {!item.bothAnswered && !closed && (
-            <p className="waiting-note">
-              <Clock size={16} />
-              Both perspectives appear together once you each choose to share.
-            </p>
-          )}
-        </section>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+            {!item.bothAnswered && !closed && (
+              <p className="waiting-note">
+                <Clock size={16} />
+                Both perspectives appear together once you each choose to share.
+              </p>
+            )}
+          </section>
+        </details>
       )}
       {item.bothAnswered && !closed && (
         <>
-          <GuideCard
-            text={item.guide}
-            busy={busy}
-            onGenerate={() => void onGuide(item)}
-          />
           {comparing || !item.proposal || item.stale ? (
-            <ProposalBuilder
-              key={
-                item.id + ":" + item.proposal?.version + ":" + state.planVersion
-              }
-              item={item}
-              state={state}
-              busy={busy}
-              act={act}
-              onDone={() => setComparing(false)}
-              onError={onError}
-            />
+            custom ? (
+              <ProposalBuilder
+                key={
+                  item.id +
+                  ":" +
+                  item.proposal?.version +
+                  ":" +
+                  state.planVersion
+                }
+                item={item}
+                state={state}
+                busy={busy}
+                act={act}
+                onDone={() => {
+                  setComparing(false);
+                  setCustom(false);
+                }}
+                onError={onError}
+              />
+            ) : (
+              <DecisionOptions
+                state={state}
+                item={item}
+                busy={busy}
+                act={act}
+                onDone={() => setComparing(false)}
+                onCustom={() => setCustom(true)}
+              />
+            )
           ) : null}
         </>
       )}
@@ -511,7 +557,7 @@ function DecisionDetail({
                 state.calculation
               ) {
                 try {
-                  value = clientImpact(state, item, p).contributions[i];
+                  value = impactForOption(state, item, p).contributions[i];
                 } catch {}
               }
               return (
@@ -541,6 +587,9 @@ function DecisionDetail({
                 ? "Your own split"
                 : "Equal contributions"}
           </p>
+          {proposalImpact && (
+            <OptionImpact projection={proposalImpact} pair={pair} />
+          )}
           <Approval state={state} approvals={item.proposal.approvals} />
           {!closed && item.bothAnswered && !item.stale && (
             <div className="form-actions">
@@ -623,6 +672,24 @@ function DecisionDetail({
             onError={onError}
           />
         )}
+      {item.bothAnswered && !closed && (
+        <details className="conversation-help">
+          <summary>
+            Find the words for this conversation<span>Optional</span>
+          </summary>
+          <GuideCard
+            text={item.guide}
+            busy={busy}
+            onGenerate={() => void onGuide(item)}
+          />
+        </details>
+      )}
+      {item.cancellation && !closed && (
+        <div className="notice warning">
+          One of you asked to put this decision aside. Its agreed allocation
+          stays in the plan until both people confirm cancellation.
+        </div>
+      )}
       {item.resolutions.length > 0 && (
         <details className="decision-history">
           <summary>
@@ -645,7 +712,12 @@ function DecisionDetail({
         </details>
       )}
       <div className="decision-bottom">
-        {closed ? (
+        {item.status === "completed" ? (
+          <button className="text-button" onClick={() => onSelect("new")}>
+            Start another decision
+            <ArrowRight size={16} />
+          </button>
+        ) : closed ? (
           <button
             className="button secondary"
             disabled={busy}
@@ -663,13 +735,17 @@ function DecisionDetail({
         ) : (
           <button
             className="text-button"
-            disabled={busy}
+            disabled={busy || !!item.cancellation?.[state.role]}
             onClick={() =>
               act("archiveDecision", { id: item.id, revision: item.revision })
             }
           >
             <Archive size={15} />
-            Put this decision aside
+            {item.cancellation?.[state.role]
+              ? "Waiting for your partner to set it aside"
+              : item.cancellation
+                ? "Agree to set this aside"
+                : "Put this decision aside"}
           </button>
         )}
         <span>Created {fullDate(item.createdAt)}</span>
@@ -793,26 +869,6 @@ function DecisionAnswerForm({
     </form>
   );
 }
-function clientImpact(
-  state: SpaceState,
-  item: DecisionView,
-  p: { amount: number; months: number; method: string; customA: number },
-) {
-  const a = (state.role === "A" ? state.self : state.partner) as Profile,
-    b = (state.role === "B" ? state.self : state.partner) as Profile;
-  return decisionImpact({
-    ...p,
-    kind: item.kind,
-    incomes: [a.income, b.income],
-    baseRemaining: state.calculation!.remainingCents,
-    refined: [a.refined !== false, b.refined !== false],
-    reserves: [a.reserve, b.reserve],
-    limits: [
-      (item.answers.A as DecisionAnswer)?.limit ?? null,
-      (item.answers.B as DecisionAnswer)?.limit ?? null,
-    ],
-  });
-}
 function ProposalBuilder({
   item,
   state,
@@ -838,14 +894,14 @@ function ProposalBuilder({
       notes: p?.notes || "",
       reviewDate: p?.reviewDate || afterDays(30),
     });
-  let impact: ReturnType<typeof decisionImpact> | null = null,
+  let impact: ReturnType<typeof impactForOption> | null = null,
     problem = "";
   try {
     if (!state.calculation)
       throw new Error(
         "Choose a valid monthly split before comparing this decision.",
       );
-    impact = clientImpact(state, item, {
+    impact = impactForOption(state, item, {
       amount: inputCents(draft.value.amount),
       months: Number(draft.value.months),
       method: draft.value.method,
@@ -1015,9 +1071,10 @@ function ProposalBuilder({
         </details>
       )}
       <p className="fine-print">
-        This compares one decision with your current monthly plan. Other pending
-        purchases and savings plans are not deducted. Review them together
-        before confirming.
+        Other agreed commitments are included. Unapproved ideas are not
+        reserved. This projects allocations from your monthly plan and reported
+        savings; it does not show your bank balance or track spending outside
+        this plan.
       </p>
       <div className="proposal-controls">
         <label>
@@ -1126,8 +1183,10 @@ function SavingsProgress({
         </button>
       </form>
       <p className="fine-print">
-        Progress is reported by each person. First Month does not hold,
-        transfer, or verify these funds.
+        Increases you report are counted in this month’s plan. Previously saved,
+        undated progress is treated as money already set aside. Progress is
+        self-reported; First Month does not hold, transfer, or verify these
+        funds.
       </p>
     </section>
   );

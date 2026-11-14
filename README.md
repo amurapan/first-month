@@ -11,7 +11,9 @@ A shared home for the money decisions couples make when moving in together — a
 - Editable shared expenses and equal, income-based, or custom contributions.
 - Both partners confirm the same plan version; changes reset both confirmations.
 - A household dashboard with next steps based on each person’s actual progress.
-- Purchase and recurring-cost decisions with private perspectives, alternative splits, and two separate confirmations.
+- Purchase and recurring-cost decisions with private perspectives, calculated timing/price/split options, and two separate confirmations.
+- A combined commitment ledger: accepted purchases and savings goals stay visible when evaluating the next decision.
+- A live landing-page example and a fictional household with an existing travel goal and a sofa decision.
 - Exact-cent savings schedules and progress reported by each partner. No money is held or transferred.
 - Confirmed recurring costs can be added to the monthly budget, which then needs fresh approval.
 - Weekly check-ins with separate answers, a jointly approved action, completion, and history.
@@ -52,7 +54,7 @@ Open the URL printed by the dev server. For a local model connection, set the na
 
 ```sh
 npm test
-npm --prefix web exec -- tsc --noEmit
+node web/node_modules/typescript/bin/tsc -p web/tsconfig.json --noEmit
 # With the local server running:
 npm run check:api
 npm run check:household
@@ -94,7 +96,9 @@ Set the backend’s `APP_URL` to the stable Vercel production origin so same-ori
 
 No paid services were enabled. Vercel Hobby is for personal, non-commercial use; an eventual commercial launch must use eligible hosting under [Vercel’s plan terms](https://vercel.com/docs/plans/hobby). This unpaid release does not activate subscriptions or claim validated willingness to pay. Conversation generation depends on the configured provider’s free quota and may become unavailable when that quota is exhausted.
 
-Decision comparisons evaluate one decision against the current monthly plan. Other pending purchases and savings plans are not deducted; the interface says so. Savings progress is self-reported. The workspace displays up to 200 decisions, 104 weekly check-ins, and 60 accepted plan snapshots; exports include all saved check-ins and snapshots. Weekly boundaries are Monday in UTC. Calendar reminders are downloaded by the user; there is no email scheduler.
+Decision comparisons include the monthly budget and other accepted commitments across a 24-month projection. Unapproved ideas are not reserved. Accepted contribution amounts are frozen, and saving deadlines do not silently move forward each month. A replacement proposal retains the earlier agreement until both approve a replacement or both cancel. Completed purchases are immutable; a new purchase starts a new decision. Final approvals on different decisions share a parent revision, preventing simultaneous approvals from silently relying on the same unreserved balance.
+
+Savings progress is self-reported. New progress increases count in the current UTC month; legacy undated totals are treated as previously set aside. Completing a savings goal does not deduct its full price again. Applied recurring costs move into the monthly budget without being counted twice. Projections hold income and bills constant and are not bank balances or actual spending records. Unknown personal costs and comfort amounts are explicitly incomplete, never a verified fit. The workspace displays up to 200 decisions, 104 weekly check-ins, and 60 accepted plan snapshots; exports include all saved check-ins and snapshots. Weekly boundaries are Monday in UTC. Calendar reminders are downloaded by the user; there is no email scheduler.
 
 Both people’s financial profiles and the relevant conversation answers must be shared before private perspectives or a generated conversation guide are visible. Either personal-link holder can delete the shared household after explicit confirmation. Store a private export first if needed. There is no operator recovery flow for lost personal links.
 

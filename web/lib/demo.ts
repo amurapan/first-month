@@ -1,7 +1,10 @@
+import { commitmentLedger, projectOption } from "./domain/planning.js";
+import { calculate } from "./room";
+import type { Room } from "./room";
 import { weekStart } from "./domain/life.js";
 import type { HouseholdDecision, HouseholdReview } from "./life-types";
 // Seed inputs only in explicitly labelled, newly created fictional households.
-export async function seedDemo(db: D1Database, roomId: string) {
+export async function seedDemo(db: D1Database, roomId: string, room: Room) {
   const now = new Date().toISOString(),
     decision: HouseholdDecision = {
       id: crypto.randomUUID(),
@@ -33,6 +36,80 @@ export async function seedDemo(db: D1Database, roomId: string) {
       proposal: null,
       resolutions: [],
     };
+  const trip: HouseholdDecision = {
+    id: crypto.randomUUID(),
+    title: "A weekend away",
+    kind: "purchase",
+    amount: 120000,
+    context:
+      "A trip we both want to keep saving for while furnishing our home.",
+    creator: "B",
+    status: "agreed",
+    createdAt: now,
+    updatedAt: now,
+    answers: {
+      A: {
+        limit: 25000,
+        timing: "save",
+        note: "Keep a little room for travel.",
+        shared: true,
+        updatedAt: now,
+      },
+      B: {
+        limit: 15000,
+        timing: "save",
+        note: "A small amount each month works for me.",
+        shared: true,
+        updatedAt: now,
+      },
+    },
+    proposal: {
+      amount: 120000,
+      months: 4,
+      method: "proportional",
+      customA: 0,
+      notes: "Save together before booking.",
+      reviewDate: now.slice(0, 10),
+      planVersion: room.planVersion,
+      version: 1,
+      author: "B",
+      approvals: { A: "accepted", B: "accepted" },
+      commitmentKey: commitmentLedger(
+        [decision],
+        room.expenses.map((x) => x.id),
+      ).key,
+    },
+    resolutions: [],
+    activeResolutionVersion: 1,
+    funding: { A: 0, B: 0 },
+  };
+  const allocation = projectOption(
+    {
+      item: trip,
+      decisions: [],
+      expenseIds: [],
+      incomes: [room.partners.A.income, room.partners.B.income],
+      baseRemaining: calculate(room).remainingCents,
+      refined: [true, true],
+      reserves: [room.partners.A.reserve, room.partners.B.reserve],
+      limits: [25000, 15000],
+    },
+    trip.proposal!,
+  );
+  trip.resolutions.push({
+    at: now,
+    planVersion: room.planVersion,
+    title: trip.title,
+    kind: trip.kind,
+    amount: trip.amount,
+    months: 4,
+    contributions: allocation.contributions,
+    firstMonth: allocation.firstMonth,
+    notes: trip.proposal!.notes,
+    reviewDate: trip.proposal!.reviewDate,
+    method: "proportional",
+    version: 1,
+  });
   const week = weekStart(),
     review: HouseholdReview = {
       id: roomId + ":" + week,
@@ -57,6 +134,11 @@ export async function seedDemo(db: D1Database, roomId: string) {
       action: null,
     };
   await db.batch([
+    db
+      .prepare(
+        "INSERT INTO household_decisions (id,room_id,data,revision,created_at,updated_at) VALUES (?,?,?,1,?,?)",
+      )
+      .bind(trip.id, roomId, JSON.stringify(trip), now, now),
     db
       .prepare(
         "INSERT INTO household_decisions (id,room_id,data,revision,created_at,updated_at) VALUES (?,?,?,1,?,?)",

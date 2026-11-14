@@ -1,4 +1,5 @@
 "use client";
+import { ledgerFor } from "@/lib/planning";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -172,12 +173,17 @@ export default function Reviews({
       )}
       {current?.bothAnswered && (
         <>
-          <GuideCard
-            text={current.guide}
-            busy={busy}
-            onGenerate={() => void onGuide(current)}
-            label="Prepare our weekly conversation"
-          />
+          <details className="conversation-help">
+            <summary>
+              Find the words for your check-in<span>Optional</span>
+            </summary>
+            <GuideCard
+              text={current.guide}
+              busy={busy}
+              onGenerate={() => void onGuide(current)}
+              label="Prepare our weekly conversation"
+            />
+          </details>
           <WeeklyAction
             key={current.id}
             state={state}
@@ -388,6 +394,19 @@ function WeeklyAction({
       due: a?.due || afterDays(7),
     },
   );
+  const ledger = ledgerFor(state),
+    overdue = ledger.rows.find((x) => x.overdue),
+    pending = state.householdDecisions.find((x) => x.status === "open"),
+    saving = state.householdDecisions.find(
+      (x) => x.status === "agreed" && x.kind === "purchase",
+    );
+  const suggestion = overdue
+    ? `Review the missed savings date for “${overdue.title}” and agree on a new timeline.`
+    : pending
+      ? `Compare the options for “${pending.title}” and choose our next step.`
+      : saving
+        ? `Check what we have each set aside for “${saving.title}” and update our progress.`
+        : "";
   if (editing)
     return (
       <form
@@ -411,6 +430,21 @@ function WeeklyAction({
       >
         <p className="overline">ONE SMALL THING TO CARRY FORWARD</p>
         <h2>What will you do before next week?</h2>
+        {suggestion && (
+          <div className="weekly-suggestion">
+            <span className="overline">FROM YOUR CURRENT PLANS</span>
+            <p>{suggestion}</p>
+            <button
+              type="button"
+              className="text-button"
+              disabled={draft.conflict}
+              onClick={() => draft.change({ text: suggestion, owner: "both" })}
+            >
+              Use as a starting point
+              <ArrowRight size={15} />
+            </button>
+          </div>
+        )}
         <label>
           Your next step
           <input

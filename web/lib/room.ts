@@ -440,7 +440,7 @@ export async function create(input: unknown) {
     .run();
   if (data.demo) {
     const { seedDemo } = await import("./demo");
-    await seedDemo(database(), id);
+    await seedDemo(database(), id, room);
   }
   return { id, token: a, invite: invitation, demoPartnerToken: b };
 }
