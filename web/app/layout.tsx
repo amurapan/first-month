@@ -5,10 +5,11 @@ import "./month.css";
 import "./motion.css";
 import "./onboarding.css";
 import "./navigation.css";
+import "./friendly.css";
 export const metadata: Metadata = {
-  title: "First Month — Make room for both of you",
+  title: "First Month — Shared bills. A plan for both of you.",
   description:
-    "Share a home, make money decisions together. Compare monthly contributions, plan purchases, track savings, and keep a small weekly check-in.",
+    "Compare how to split your shared bills, see what each of you has left, and agree on a monthly plan together. Free to use. No bank connection.",
   referrer: "no-referrer",
   icons: { icon: "/favicon.svg" },
 };

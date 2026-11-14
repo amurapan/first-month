@@ -13,6 +13,7 @@ A shared home for the money decisions couples make when moving in together — a
 - One consistent navigation for the budget and household, with clear separation between planned contributions and actual spending. Old personal links open the same workspace.
 - Saved profiles and planned costs open as summaries; editing is optional. Sharing can be completed inline without filling the profile again.
 - Browser back/forward follows sections; unsaved split comparisons survive navigation and cannot be mistaken for the saved agreement.
+- One side-by-side result shows contributions and money left. Detailed math and conversation support expand on demand; shortfalls remain visible. Trying an option, saving a proposal, and both agreeing are separate states.
 - Separate personal links for two partners, with a single-use invitation.
 - Private answers stay hidden until both people explicitly choose to share.
 - Editable shared expenses and equal, income-based, or custom contributions.
@@ -24,7 +25,7 @@ A shared home for the money decisions couples make when moving in together — a
 - Decision starters for furniture, trips, and recurring costs; amounts always come from the user.
 - Purchase and recurring-cost decisions with private perspectives, calculated timing/price/split options, and two separate confirmations.
 - A combined commitment ledger: accepted purchases and savings goals stay visible when evaluating the next decision.
-- A live landing-page example and a fictional household with an existing travel goal and a sofa decision.
+- An interactive monthly-split example on the landing page; the sample household opens the same budget comparison, with spending, a travel goal, and a sofa decision available afterward.
 - Exact-cent savings schedules and progress reported by each partner. No money is held or transferred.
 - Confirmed recurring costs can be added to the monthly budget, which then needs fresh approval.
 - Weekly check-ins with separate answers, a jointly approved action, completion, and history.

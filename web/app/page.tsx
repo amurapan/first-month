@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -7,74 +7,45 @@ import {
   CheckCheck,
   LockKeyhole,
   Plus,
+  ReceiptText,
+  MessageCircle,
+  HeartHandshake,
 } from "lucide-react";
 import { AnimatedMoney } from "@/components/motion";
 import { Brand } from "@/components/brand";
 import { HomeScene } from "@/components/home-scene";
-import { money } from "@/components/quick-comparison";
+import SplitResult from "@/components/split-result";
 import { calculateBudget } from "@/lib/domain/budget.js";
-import { decisionOptions } from "@/lib/domain/planning.js";
-import type { HouseholdDecision } from "@/lib/life-types";
 
-const illustrationBudget = calculateBudget({
-  sharedCents: 340000,
-  incomeCents: [600000, 300000],
-  personalCommitmentsCents: [90000, 30000],
-  minimumRemainingCents: [200000, 120000],
-  method: "proportional",
-  customContributionsCents: undefined,
-});
-const fixture: HouseholdDecision = {
-  id: "illustration",
-  title: "A sofa for our living room",
-  context: "",
-  kind: "purchase",
-  amount: 90000,
-  creator: "A",
-  status: "open",
-  createdAt: "2026-01-01",
-  updatedAt: "2026-01-01",
-  answers: {
-    A: { limit: 60000, timing: "now", note: "", shared: true, updatedAt: "" },
-    B: { limit: 25000, timing: "save", note: "", shared: true, updatedAt: "" },
-  },
-  proposal: null,
-  resolutions: [],
-};
+const examplePeople = [
+  { name: "Alex", income: 600000, personal: 0, reserve: 0, refined: false },
+  { name: "Jordan", income: 300000, personal: 0, reserve: 0, refined: false },
+];
+
 export default function Home() {
   const [ready, setReady] = useState(false);
-  const [recent, setRecent] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const [price, setPrice] = useState(900),
-    [choice, setChoice] = useState("save");
+  const [recent, setRecent] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [total, setTotal] = useState(300000);
+  const [method, setMethod] = useState<"equal" | "proportional">("equal");
+  const result = calculateBudget({
+    sharedCents: total,
+    incomeCents: examplePeople.map((p) => p.income),
+    method,
+    customContributionsCents: undefined,
+  });
   useEffect(() => {
     setReady(true);
     try {
       setRecent(localStorage.getItem("fm:recent") || "");
     } catch {}
   }, []);
-  const compared = useMemo(
-    () =>
-      decisionOptions({
-        item: { ...fixture, amount: price * 100 },
-        incomes: [600000, 300000],
-        baseRemaining: illustrationBudget.remainingCents,
-        refined: [true, true],
-        reserves: [200000, 120000],
-        limits: [60000, 25000],
-        decisions: [],
-        expenseIds: [],
-      }),
-    [price],
-  );
-  const selected =
-    compared.options.find((x) => x.id === choice) || compared.options[0];
   async function demo() {
     setBusy(true);
     setError("");
     try {
-      const r = await fetch("/api/rooms", {
+      const response = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -84,34 +55,21 @@ export default function Home() {
           demo: true,
         }),
       });
-      const data = (await r.json()) as {
+      const data = (await response.json()) as {
         id: string;
         token: string;
         demoPartnerToken: string;
         error?: string;
       };
-      if (!r.ok) throw new Error(data.error || "Please try again.");
+      if (!response.ok) throw new Error(data.error || "Please try again.");
       try {
         localStorage.setItem(
           "fm:demo:" + data.id,
           JSON.stringify({ A: data.token, B: data.demoPartnerToken }),
         );
       } catch {}
-      const w = await fetch("/api/rooms/" + data.id + "/workspace", {
-        headers: { Authorization: "Bearer " + data.token },
-      });
-      const space = (await w.json()) as {
-        householdDecisions?: { id: string; status: string }[];
-      };
-      const decision = space.householdDecisions?.find(
-        (x) => x.status === "open",
-      );
       location.assign(
-        "/space/" +
-          data.id +
-          (decision ? "?tab=decisions&decision=" + decision.id : "") +
-          "#key=" +
-          data.token,
+        "/space/" + data.id + "?tab=budget&section=2#key=" + data.token,
       );
     } catch (e) {
       setError((e as Error).message);
@@ -119,17 +77,16 @@ export default function Home() {
     }
   }
   return (
-    <div className="new-landing">
+    <div className="new-landing friendly-landing">
       <header className="new-nav">
         <Brand />
         <nav>
-          <a href="#how">The idea</a>
-          <a href={recent || "/spaces"}>
+          <a href="#how">How it works</a>
+          <a className="return-to-space" href={recent || "/spaces"}>
             {recent ? "Open our space" : "Find our space"}
           </a>
           <a className="button primary" href="/start">
-            Get started
-            <ArrowUpRight size={17} />
+            Compare our costs <ArrowUpRight size={17} />
           </a>
         </nav>
       </header>
@@ -137,34 +94,34 @@ export default function Home() {
         <section className="new-hero">
           <div className="new-hero-copy">
             <p className="eyebrow">
-              <i />
-              LIFE TOGETHER. MONEY INCLUDED.
+              <i /> MOVING IN. FIGURING MONEY OUT.
             </p>
             <h1>
-              Big plans.
+              Shared bills.
+              <br />A plan for
               <br />
-              <span>
-                Same <em>team.</em>
-              </span>
+              <em>both of you.</em>
             </h1>
             <p className="new-intro">
-              A sofa. A shared bill. A trip you keep putting off. <br />
-              Turn both points of view into a plan you can actually agree on.
+              See what you’d each pay, what you’d each have left, and choose a
+              split together.
             </p>
             <div className="new-hero-actions">
               <a className="button primary large" href="/start">
-                Start with your numbers
-                <ArrowUpRight size={20} />
+                Compare our costs <ArrowUpRight size={20} />
               </a>
               <button
                 className="text-button"
                 disabled={busy || !ready}
                 onClick={demo}
               >
-                {busy ? "Opening your example…" : "Take a look inside"}
-                <ArrowRight size={18} />
+                {busy ? "Opening an example…" : "Try a sample household"}{" "}
+                <ArrowRight size={17} />
               </button>
             </div>
+            <p className="friendly-start-note">
+              Two short steps. You can start on your own.
+            </p>
             <div className="new-assurances">
               <span>
                 <Check size={13} />
@@ -172,11 +129,11 @@ export default function Home() {
               </span>
               <span>
                 <Check size={13} />
-                No bank connection
+                No sign-up
               </span>
               <span>
                 <Check size={13} />
-                Start on your own
+                No bank connection
               </span>
             </div>
             {error && (
@@ -185,305 +142,216 @@ export default function Home() {
               </p>
             )}
           </div>
-          <div className="hero-scenario">
-            <div className="scenario-topline">
+          <section
+            className="landing-budget"
+            aria-label="Interactive budget example"
+          >
+            <div className="landing-example-label">
               <span>
-                <i /> A LITTLE LOOK AT WHAT’S POSSIBLE
+                <i /> TRY THE NUMBERS
               </span>
-              <span>Interactive example</span>
+              <span>Fictional couple · USD</span>
             </div>
-            <div className="scenario-scene">
-              <HomeScene
-                phase={
-                  selected.id === "now" ? 0 : selected.id === "save" ? 1 : 2
-                }
+            <div className="landing-budget-heading">
+              <h2>One home. Two incomes.</h2>
+              <p>Alex takes home $6,000. Jordan takes home $3,000.</p>
+            </div>
+            <div className="landing-cost-control">
+              <label htmlFor="sample-costs">Their shared monthly costs</label>
+              <strong>
+                <AnimatedMoney value={total} />
+              </strong>
+              <input
+                id="sample-costs"
+                disabled={!ready}
+                type="range"
+                min="1200"
+                max="6000"
+                step="100"
+                value={total / 100}
+                onChange={(e) => setTotal(Number(e.target.value) * 100)}
+                aria-valuetext={"$" + total / 100 + " per month"}
               />
-              <div className="scene-note note-a">
-                <span className="person-orb">A</span>
-                <div>
-                  <strong>Alex</strong>
-                  <span>“I’d love to get it soon.”</span>
-                </div>
+              <div>
+                <span>$1,200</span>
+                <span>Move the slider to compare</span>
+                <span>$6,000</span>
               </div>
-              <div className="scene-note note-b">
-                <span className="person-orb">J</span>
-                <div>
-                  <strong>Jordan</strong>
-                  <span>“Can we save for it first?”</span>
-                </div>
-              </div>
-              <span className="scene-price">
-                The sofa{" "}
-                <strong>
-                  <AnimatedMoney value={price * 100} />
-                </strong>
-              </span>
             </div>
-            <div className="scenario-console">
-              <div className="scenario-price-control">
-                <label htmlFor="sample-price">Change the price</label>
-                <input
-                  disabled={!ready}
-                  id="sample-price"
-                  type="range"
-                  min="600"
-                  max="1800"
-                  step="50"
-                  value={price}
-                  onChange={(e) => setPrice(Number(e.target.value))}
-                />
-                <output htmlFor="sample-price">
-                  <AnimatedMoney value={price * 100} />
-                </output>
-              </div>
-              <div
-                className="scenario-tabs"
-                role="group"
-                aria-label="Explore the example"
+            <div
+              className="split-methods"
+              role="group"
+              aria-label="Example split method"
+            >
+              <button
+                disabled={!ready}
+                aria-pressed={method === "equal"}
+                onClick={() => setMethod("equal")}
               >
-                {compared.options.map((o) => (
-                  <button
-                    disabled={!ready}
-                    key={o.id}
-                    aria-pressed={selected.id === o.id}
-                    onClick={() => setChoice(o.id)}
-                  >
-                    {o.id === "now"
-                      ? "This month"
-                      : o.id === "save"
-                        ? "Save first"
-                        : o.id === "lower"
-                          ? "Lower budget"
-                          : "Another split"}
-                  </button>
-                ))}
-              </div>
-              <div className="scenario-outcome" aria-live="polite">
-                <div>
-                  <span className={"scenario-state " + selected.status}>
-                    {selected.status === "fits" ? (
-                      <CheckCheck size={15} />
-                    ) : (
-                      <Plus size={15} />
-                    )}{" "}
-                    {selected.status === "fits"
-                      ? "Within both comfort amounts"
-                      : "A trade-off to discuss"}
-                  </span>
-                  <strong>
-                    {selected.id === "save"
-                      ? selected.months + " months to make room"
-                      : selected.id === "lower"
-                        ? money(selected.amount) + " price ceiling"
-                        : selected.title}
-                  </strong>
-                </div>
-                <div className="scenario-numbers">
-                  <span>
-                    <i className="person-0" />
-                    Alex
-                    <strong>
-                      <AnimatedMoney value={selected.firstMonth[0]} />
-                    </strong>
-                  </span>
-                  <span>
-                    <i className="person-1" />
-                    Jordan
-                    <strong>
-                      <AnimatedMoney value={selected.firstMonth[1]} />
-                    </strong>
-                  </span>
-                </div>
-              </div>
-              <p className="scenario-caption">
-                Fictional household · Income-based split · Amounts per person
-                this month
-              </p>
-              <details className="example-assumptions">
-                <summary>See the numbers behind this example</summary>
-                <p>
-                  Alex earns $6,000 and has $2,833.33 after included costs;
-                  Jordan earns $3,000 and has $1,566.67. They want to keep
-                  $2,000 and $1,200 respectively. Their monthly comfort amounts
-                  for this purchase are $600 and $250. No other commitments are
-                  included in this illustration. In your space, agreed plans are
-                  included automatically.
-                </p>
-              </details>
+                <span>50 / 50</span>
+                <small>The same amount each</small>
+              </button>
+              <button
+                disabled={!ready}
+                aria-pressed={method === "proportional"}
+                onClick={() => setMethod("proportional")}
+              >
+                <span>By income</span>
+                <small>The same % of income</small>
+              </button>
             </div>
-          </div>
+            <SplitResult
+              people={examplePeople}
+              contributions={result.contributionsCents}
+              remaining={result.remainingCents}
+            />
+            <p className="landing-example-note">
+              Personal bills and savings aren’t included. Neither option decides
+              what’s right for you.
+            </p>
+            <a href="/start" className="landing-example-link">
+              Now try your own numbers <ArrowRight size={16} />
+            </a>
+          </section>
         </section>
-        <div className="new-divider">
-          <span>YOUR SIDE.</span>
-          <span>THEIR SIDE.</span>
-          <span>A WAY FORWARD.</span>
-          <ArrowRight size={25} />
-        </div>
-        <section className="new-story" id="how">
-          <div className="story-heading">
-            <p className="eyebrow">GOOD CONVERSATIONS NEED A STARTING POINT</p>
+        <section className="friendly-how" id="how">
+          <div className="friendly-section-heading">
+            <p className="eyebrow">A SMALL START. A CLEARER CONVERSATION.</p>
             <h2>
-              You can want the same thing <br />
-              and need <em>different plans.</em>
+              You don’t need to have
+              <br />
+              <em>all the answers.</em>
             </h2>
           </div>
-          <div className="story-steps">
+          <div className="friendly-steps">
             <article>
-              <span className="step-number">
-                01<span>YOU</span>
-              </span>
-              <h3>A little space for your side.</h3>
+              <span className="friendly-step-number">01</span>
+              <h3>Get a starting picture.</h3>
               <p>
-                Add what you’re considering and what feels comfortable. Save
-                your answer privately until you’re ready.
+                Add your take-home pay and shared costs. Estimate your partner’s
+                income, or leave it for them.
               </p>
-              <div className="story-detail">
-                <LockKeyhole size={17} />
-                <span>Your perspective stays yours.</span>
-              </div>
+              <span className="friendly-step-detail">
+                See a comparison before saving anything.
+              </span>
             </article>
             <article>
-              <span className="step-number">
-                02<span>YOUR PARTNER</span>
-              </span>
-              <h3>Make room for their reality.</h3>
+              <span className="friendly-step-number">02</span>
+              <h3>Bring in their side.</h3>
               <p>
-                Send a private invitation. They answer separately, then both
-                perspectives appear when you each choose to share.
+                Send a private invitation link. They add their own numbers; you
+                each choose when to share.
               </p>
-              <div className="story-two-voices">
-                <span>A</span>
-                <i>+</i>
-                <span>J</span>
-                <small>Two voices. Both included.</small>
-              </div>
+              <span className="friendly-step-detail">
+                <LockKeyhole size={15} /> Your estimate never becomes their
+                answer.
+              </span>
             </article>
             <article>
-              <span className="step-number">
-                03<span>TOGETHER</span>
-              </span>
-              <h3>Choose with the whole picture.</h3>
+              <span className="friendly-step-number">03</span>
+              <h3>Choose, then both agree.</h3>
               <p>
-                Compare a different timeline, price, or split. See the effect on
-                both people and the plans you already agreed to.
+                Compare contributions and money left over. Save a proposal, work
+                out the details, and confirm separately.
               </p>
-              <div className="story-detail">
-                <CheckCheck size={20} />
-                <span>One plan. Two separate yeses.</span>
-              </div>
+              <span className="friendly-step-detail">
+                <CheckCheck size={16} /> A saved proposal still needs two yeses.
+              </span>
             </article>
           </div>
         </section>
-        <section className="new-continuity">
-          <div className="continuity-copy">
-            <p className="eyebrow">THE DECISION ISN’T THE END</p>
+        <section className="friendly-together">
+          <div className="friendly-together-intro">
+            <p className="eyebrow">AFTER YOU’VE MADE A PLAN</p>
             <h2>
-              Every yes
+              For the month
               <br />
-              has a <span>place.</span>
+              you actually <em>live.</em>
             </h2>
             <p>
-              The trip you’re saving for still counts when you compare a new
-              purchase. Record shared costs, settle up, and bring what changed
-              into your next check-in.
+              The groceries change. The sofa can wait. Keep your plan close as
+              life happens.
             </p>
+            <div className="friendly-home-scene" aria-hidden="true">
+              <HomeScene />
+            </div>
+          </div>
+          <div className="friendly-next-list">
+            <article>
+              <ReceiptText size={22} />
+              <div>
+                <span>SPENDING</span>
+                <h3>Who paid for what?</h3>
+                <p>
+                  Record shared expenses and see what’s left to settle. Confirm
+                  reimbursements together.
+                </p>
+              </div>
+            </article>
+            <article>
+              <HeartHandshake size={22} />
+              <div>
+                <span>DECISIONS</span>
+                <h3>Can we make room for it?</h3>
+                <p>
+                  Compare a purchase now, a smaller budget, or saving up. Keep
+                  both comfort amounts in view.
+                </p>
+              </div>
+            </article>
+            <article>
+              <MessageCircle size={22} />
+              <div>
+                <span>CHECK-IN</span>
+                <h3>Is this still working for us?</h3>
+                <p>
+                  Share a short weekly reflection and choose one next step.
+                  Revisit the plan when things change.
+                </p>
+              </div>
+            </article>
             <button
-              className="button light large"
+              className="button light"
               disabled={busy || !ready}
               onClick={demo}
             >
-              Explore a sample household
-              <ArrowUpRight size={19} />
+              {busy ? "Opening an example…" : "Explore a sample household"}{" "}
+              <ArrowUpRight size={17} />
             </button>
-            <small>Fictional data. Switch between both partners.</small>
-          </div>
-          <div className="continuity-path">
-            <div className="path-row">
-              <span className="path-dot">
-                <Check size={18} />
-              </span>
-              <div>
-                <span>YOUR FOUNDATION</span>
-                <h3>A monthly plan you both understand.</h3>
-                <p>
-                  Shared bills, personal room, and a contribution from each of
-                  you.
-                </p>
-              </div>
-            </div>
-            <div className="path-row">
-              <span className="path-dot">
-                <CheckCheck size={18} />
-              </span>
-              <div>
-                <span>YOUR NEXT DECISION</span>
-                <h3>A purchase with a way forward.</h3>
-                <p>
-                  Clear trade-offs. Both confirmations. A savings schedule you
-                  can follow.
-                </p>
-                <div className="path-illustration">
-                  <span className="person-0" />
-                  <span className="person-1" />
-                  <span className="path-progress" />
-                  <small>Your shared progress</small>
-                </div>
-              </div>
-            </div>
-            <div className="path-row">
-              <span className="path-dot">↔</span>
-              <div>
-                <span>YOUR MONTH IN REAL LIFE</span>
-                <h3>Know what you each covered.</h3>
-                <p>
-                  Record shared costs, compare them with your plan, and confirm
-                  any reimbursement together.
-                </p>
-              </div>
-            </div>
-            <div className="path-row">
-              <span className="path-dot">↗</span>
-              <div>
-                <span>YOUR WEEKLY MOMENT</span>
-                <h3>Keep what works. Change what doesn’t.</h3>
-                <p>
-                  Two short answers and one next step. Your agreements stay in
-                  your history.
-                </p>
-              </div>
-            </div>
+            <small>Fictional data. Try both partners’ perspectives.</small>
+            {error && <p role="alert">{error}</p>}
           </div>
         </section>
         <section className="new-faq">
           <div>
-            <p className="eyebrow">A FEW THINGS TO KNOW</p>
+            <p className="eyebrow">BEFORE YOU START</p>
             <h2>
-              Keep your independence.
+              Your money.
               <br />
-              <span>Build something together.</span>
+              <em>Your choices.</em>
             </h2>
           </div>
           <div className="new-faq-list">
             {[
               [
-                "Can I start on my own?",
-                "Yes. Start with a short comparison using your income, a partner-income estimate if you know it, and your shared costs. Your partner adds their own answers before you agree on anything together.",
+                "Can I start without my partner?",
+                "Yes. You only need your take-home pay and shared monthly costs. Add a partner-income estimate if you know it, or skip it. You can explore on your own before inviting them.",
               ],
               [
-                "Does the app choose what is fair?",
-                "You choose together. First Month calculates the consequences of different amounts, splits, and timelines. A suggestion that fits the numbers is still a proposal, and both people confirm separately.",
+                "Does First Month pick the fairest split?",
+                "You choose together. The app shows the contributions and money left over for each option. It doesn’t decide what is fair for your relationship. Saving a proposal never counts as your partner’s agreement.",
               ],
               [
-                "How private is our space?",
-                "Each person has a private access link. Financial profiles and conversation answers appear to your partner after both people share. Save your link somewhere private; there is no account recovery without it. You can export your data, replace your link, or delete the space.",
+                "Who can see our answers?",
+                "Each person has a private access link. Financial profiles appear to your partner after both people share. Shared costs and saved proposals are visible to both. Keep your link somewhere private: it is how you return, and there is no account recovery without it. You can export your data, replace your link, or delete the space.",
               ],
               [
-                "Do we need to connect our banks?",
-                "No. You enter your plan and record shared costs paid from personal funds. First Month compares planned and recorded costs and calculates reimbursements; you send any money yourselves and the recipient confirms it. Joint accounts and already shared savings pots are outside the monthly ledger.",
+                "Does it connect to our bank or move money?",
+                "No. You enter your numbers and record payments yourself. The app calculates reimbursements; you send any money yourselves and the recipient confirms it. The spending tracker is for costs paid from personal funds, not joint accounts or shared savings pots.",
               ],
               [
                 "What does it cost?",
-                "This release is free, with no card required or automatic charges. Optional generated conversation support has usage limits. Your calculations and saved decisions keep working without it.",
+                "This release is free. No card, subscription, or automatic charges. Optional generated conversation guides have usage limits; your calculations and saved decisions keep working without them.",
               ],
             ].map(([q, a]) => (
               <details key={q}>
@@ -496,21 +364,21 @@ export default function Home() {
             ))}
           </div>
         </section>
-        <section className="new-final">
-          <div className="final-duo">
-            <span>A little more you.</span>
-            <span>A little more us.</span>
+        <section className="friendly-final">
+          <div>
+            <p className="eyebrow">YOUR FIRST STEP TOGETHER</p>
+            <h2>
+              Start with the numbers.
+              <br />
+              <em>Make room for the conversation.</em>
+            </h2>
           </div>
-          <h2>
-            Make your
-            <br />
-            <span>next move.</span>
-          </h2>
-          <a href="/start" className="button primary large">
-            Find our starting point
-            <ArrowUpRight size={21} />
-          </a>
-          <p>Three numbers to begin. The rest, together.</p>
+          <div>
+            <a href="/start" className="button primary large">
+              Compare our costs <ArrowUpRight size={20} />
+            </a>
+            <p>Free to use. No account needed.</p>
+          </div>
         </section>
       </main>
       <footer className="new-footer">
@@ -520,8 +388,7 @@ export default function Home() {
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>
           <a href="mailto:kudomiya@proton.me">
-            Get in touch
-            <ArrowUpRight size={13} />
+            Get in touch <ArrowUpRight size={13} />
           </a>
         </nav>
       </footer>

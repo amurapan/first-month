@@ -1,5 +1,6 @@
 "use client";
 import SplitInsight from "./split-insight";
+import SplitResult from "./split-result";
 import { AnimatedMoney, PlanAssembly } from "@/components/motion";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -60,6 +61,16 @@ function download(name: string, contents: string, mime = "text/plain") {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function comparisonChanged(plan: Plan, method: Plan["method"], custom: string) {
+  if (method !== plan.method) return true;
+  if (method !== "custom") return false;
+  try {
+    return parseMoney(custom) !== plan.customA;
+  } catch {
+    return true;
+  }
+}
+
 function savedComparison(state: State) {
   const draft = readDraft<{
     version: number;
@@ -109,9 +120,7 @@ export default function PlanApp({
   const comparison = savedComparison(state);
   const unsavedComparison =
     !!comparison &&
-    (comparison.method !== state.plan.method ||
-      (comparison.method === "custom" &&
-        Number(comparison.custom) * 100 !== state.plan.customA));
+    comparisonChanged(state.plan, comparison.method, comparison.custom);
   useEffect(() => {
     if (previousStep.current !== step) {
       setEditingProfile(false);
@@ -185,7 +194,15 @@ export default function PlanApp({
           </p>
         </div>
         <span className={"status-tag " + (agreed ? "green" : "")}>
-          {agreed ? "Confirmed together" : "Draft · not yet confirmed together"}
+          {!state.bothShared
+            ? "Waiting for shared details"
+            : agreed
+              ? "Saved plan · agreed by both"
+              : "Saved proposal · " +
+                [state.decisions.A, state.decisions.B].filter(
+                  (value) => value === "accepted",
+                ).length +
+                " of 2 agreed"}
         </span>
       </div>
       <nav className="budget-sections" aria-label="Budget sections">
@@ -943,6 +960,12 @@ function Balance({
         ),
     );
   const [draftSaved, setDraftSaved] = useState(true);
+  const [guideExpanded, setGuideExpanded] = useState(
+    guideBusy || !!state.guide,
+  );
+  useEffect(() => {
+    if (guideBusy) setGuideExpanded(true);
+  }, [guideBusy]);
   useEffect(() => {
     setDraftSaved(
       writeDraft("fm:split-draft:" + state.id + ":" + state.role, {
@@ -986,203 +1009,194 @@ function Balance({
     method,
     customA: method === "custom" ? parseMoney(custom) : state.plan.customA,
   });
-  const changed =
-    method !== state.plan.method ||
-    (method === "custom" && Number(custom) * 100 !== state.plan.customA);
+  const changed = comparisonChanged(state.plan, method, custom);
+  const agreed =
+    state.decisions.A === "accepted" && state.decisions.B === "accepted";
+  const acceptedCount = [state.decisions.A, state.decisions.B].filter(
+    (x) => x === "accepted",
+  ).length;
+  const combinedRemaining = selected
+    ? selected.remainingCents[0] + selected.remainingCents[1]
+    : 0;
   return (
-    <>
-      <div className="balance-summary">
-        <div>
-          <p className="overline">ONE SHARED MONTHLY BUDGET</p>
-          <strong>
-            <AnimatedMoney value={total} enter />
-            <span>/ month</span>
-          </strong>
-        </div>
-        <p>
-          Choose a split.
-          <br />
-          <strong>See what it leaves each of you.</strong>
-        </p>
-      </div>
-      <div className="option-grid" aria-label="Ways to share your expenses">
-        {(["equal", "proportional", "custom"] as const).map((choice, i) => {
-          let result = null;
-          try {
-            result = calc(choice);
-          } catch {}
-          return (
-            <button
-              key={choice}
-              aria-pressed={method === choice}
-              className={"option-card " + (method === choice ? "selected" : "")}
-              onClick={() => setMethod(choice)}
-            >
-              <span className="option-top">
-                <span className="radio-indicator">
-                  {method === choice && <span />}
-                </span>
-                <span>{method === choice ? "SELECTED" : "0" + (i + 1)}</span>
-              </span>
-              <h3>{names[choice]}</h3>
-              <p>
-                {
-                  [
-                    "Half each, whatever your income.",
-                    "Each pays the same share of their income.",
-                    "Set a contribution that works for you.",
-                  ][i]
-                }
-              </p>
-              <div className="option-amounts">
-                <span>
-                  {a.name}
-                  <strong>
-                    {result ? (
-                      <AnimatedMoney value={result.contributionsCents[0]} />
-                    ) : (
-                      "—"
-                    )}
-                  </strong>
-                </span>
-                <span>
-                  {b.name}
-                  <strong>
-                    {result ? (
-                      <AnimatedMoney value={result.contributionsCents[1]} />
-                    ) : (
-                      "—"
-                    )}
-                  </strong>
-                </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      {method === "custom" && (
-        <div className="surface custom-split">
-          <label>
-            {a.name}’s monthly contribution
-            <span className="money-input">
-              <span>$</span>
-              <input
-                aria-label="Custom contribution"
-                value={custom}
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                max={total / 100}
-                onChange={(e) => setCustom(e.target.value)}
-              />
-            </span>
-          </label>
-          <ArrowRight size={20} />
+    <div className="compact-budget">
+      <section
+        className="balance-result"
+        aria-label="What this split means for you"
+      >
+        <div className="compact-budget-heading">
           <div>
-            <span>{b.name} covers the rest</span>
+            <p className="overline">COMPARE SPLITS</p>
+            <h2>What would you each pay?</h2>
+          </div>
+          <div className="compact-budget-total">
+            <span>Shared costs / month</span>
             <strong>
-              {selected ? (
-                <AnimatedMoney value={selected.contributionsCents[1]} />
-              ) : (
-                "—"
-              )}
+              <AnimatedMoney value={total} />
             </strong>
           </div>
         </div>
-      )}
-      <div className="page-actions balance-actions">
-        <span className="small-text muted">
-          {changed
-            ? "Exploring a new split · not saved to your shared budget yet"
-            : state.decisions.A === "accepted" &&
-                state.decisions.B === "accepted"
-              ? "This is the split you both confirmed."
-              : "This matches the saved budget. Review it together."}
-          {!draftSaved &&
-            " · Keep this page open; browser drafts are unavailable."}
-        </span>
-        <button
-          className="button primary"
-          disabled={busy || guideBusy || !selected}
-          onClick={() => {
-            try {
-              onSave(draft());
-            } catch (error) {
-              onError((error as Error).message);
-            }
-          }}
+        <div
+          className="split-methods"
+          role="group"
+          aria-label="Ways to share your expenses"
         >
-          {busy
-            ? "Saving…"
-            : !changed &&
-                state.decisions.A === "accepted" &&
-                state.decisions.B === "accepted"
-              ? "View confirmed plan"
-              : "Use this split"}
-          <ArrowRight size={17} />
-        </button>
-      </div>
-      {problem && (
-        <div className="alert error" role="alert">
-          {problem}
+          {(["equal", "proportional", "custom"] as const).map((choice, i) => (
+            <button
+              key={choice}
+              aria-pressed={method === choice}
+              disabled={busy || guideBusy}
+              onClick={() => setMethod(choice)}
+            >
+              <span>{names[choice]}</span>
+              <small>
+                {
+                  [
+                    "The same amount each",
+                    "The same % of income",
+                    "Choose the amounts",
+                  ][i]
+                }
+              </small>
+            </button>
+          ))}
         </div>
-      )}
-      {selected && (
-        <section
-          className="balance-result"
-          aria-label="What this split means for you"
-        >
-          <div className="result-heading">
+        {method === "custom" && (
+          <div className="custom-split compact-custom">
+            <label>
+              {a.name}’s monthly contribution
+              <span className="money-input">
+                <span>$</span>
+                <input
+                  aria-label="Custom contribution"
+                  value={custom}
+                  disabled={busy || guideBusy}
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  max={total / 100}
+                  onChange={(e) => setCustom(e.target.value)}
+                />
+              </span>
+            </label>
             <div>
-              <p className="overline">
-                {names[method].toUpperCase()} · MONTHLY RESULT
-              </p>
-              <h2>
-                {[a, b].some((person) => person.refined === false)
-                  ? "After your shared costs."
-                  : "What stays yours."}
-              </h2>
+              <span>{b.name} covers the rest</span>
+              <strong>
+                {selected ? (
+                  <AnimatedMoney value={selected.contributionsCents[1]} />
+                ) : (
+                  "—"
+                )}
+              </strong>
             </div>
-            <span>After the costs you’ve included</span>
           </div>
-          <div className="result-people">
-            {[a, b].map((person, i) => {
-              const change =
-                selected!.remainingCents[i] - equal.remainingCents[i];
-              const cushion = selected!.remainingCents[i] - person.reserve;
-              return (
-                <article
-                  className={"person-result " + (i ? "partner-result" : "")}
-                  key={i}
-                >
-                  <div className="person-result-top">
-                    <span className={"avatar " + (i ? "peach" : "")}>
-                      {person.name[0]}
-                    </span>
+        )}
+        {problem && (
+          <div className="alert error" role="alert">
+            {problem}
+          </div>
+        )}
+        {selected && (
+          <>
+            <SplitResult
+              people={[a, b]}
+              role={state.role}
+              contributions={selected.contributionsCents}
+              remaining={selected.remainingCents}
+            />
+            {combinedRemaining < 0 && (
+              <p className="split-budget-warning">
+                The included costs exceed your combined incomes by{" "}
+                {money(-combinedRemaining)}. Changing the split alone cannot
+                close this gap.
+              </p>
+            )}
+            <p className="split-scope">
+              {[a, b].some((p) => p.refined === false)
+                ? "Personal bills and savings aren’t included for " +
+                  [a, b]
+                    .filter((p) => p.refined === false)
+                    .map((p) => p.name)
+                    .join(" and ") +
+                  "."
+                : "Money left is after the shared contribution and personal bills you’ve entered. Savings still come from this amount."}
+              {state.self.refined === false && (
+                <>
+                  {" "}
+                  <button className="text-button" onClick={onRefine}>
+                    Add your personal costs <ArrowRight size={13} />
+                  </button>
+                </>
+              )}
+            </p>
+          </>
+        )}
+        <div className="proposal-action">
+          <div className="proposal-status" aria-live="polite">
+            <strong>
+              {changed
+                ? "Trying an option"
+                : agreed
+                  ? "Agreed by both"
+                  : "Saved proposal · " + acceptedCount + " of 2 agreed"}
+            </strong>
+            <p>
+              {changed
+                ? "Only your comparison has changed. Save it for your partner to review."
+                : agreed
+                  ? "This matches the plan you both confirmed."
+                  : "Review the details next. You each confirm separately."}
+            </p>
+            {!draftSaved && (
+              <p className="attention">
+                Browser drafts are unavailable. Keep this page open to preserve
+                this comparison.
+              </p>
+            )}
+          </div>
+          <button
+            className="button primary"
+            disabled={busy || guideBusy || !selected}
+            onClick={() => {
+              try {
+                onSave(draft());
+              } catch (error) {
+                onError((error as Error).message);
+              }
+            }}
+          >
+            {busy
+              ? "Saving…"
+              : changed
+                ? "Save this proposal"
+                : agreed
+                  ? "View agreed plan"
+                  : "Review & confirm"}
+            <ArrowRight size={17} />
+          </button>
+        </div>
+      </section>
+      {selected && (
+        <details className="budget-extra budget-math">
+          <summary>
+            <span>
+              How these numbers work
+              <small>
+                Income, personal bills, and the difference from equal shares
+              </small>
+            </span>
+            <Plus size={18} />
+          </summary>
+          <div className="budget-extra-content">
+            <div className="math-people">
+              {[a, b].map((person, i) => {
+                const change =
+                  selected!.remainingCents[i] - equal.remainingCents[i];
+                return (
+                  <div key={i}>
                     <strong>{person.name}</strong>
-                    <span>
-                      {state.role === (i ? "B" : "A") ? "YOU" : "YOUR PARTNER"}
-                    </span>
-                  </div>
-                  <p className="remaining-value">
-                    <AnimatedMoney value={selected!.remainingCents[i]} enter />
-                    <span>
-                      {person.refined === false
-                        ? "after shared costs"
-                        : "left after your included bills"}
-                    </span>
-                  </p>
-                  <p className="split-difference">
-                    {change === 0
-                      ? "The same as an equal split"
-                      : money(Math.abs(change)) +
-                        (change > 0 ? " more" : " less") +
-                        " than an equal split"}
-                  </p>
-                  <details className="person-breakdown">
-                    <summary>View income & costs</summary>
-                    <dl className="result-breakdown">
+                    <dl>
                       <div>
                         <dt>Take-home income</dt>
                         <dd>{money(person.income)}</dd>
@@ -1199,82 +1213,55 @@ function Balance({
                         <dt>Shared contribution</dt>
                         <dd>− {money(selected!.contributionsCents[i])}</dd>
                       </div>
+                      <div>
+                        <dt>Left after included costs</dt>
+                        <dd>{money(selected!.remainingCents[i])}</dd>
+                      </div>
                     </dl>
-                  </details>
-                  <div
-                    className={
-                      "preference-result " +
-                      (cushion < 0 ? "below-preference" : "")
-                    }
-                  >
-                    {person.refined !== false && cushion >= 0 ? (
-                      <Check size={17} />
-                    ) : (
-                      <CircleHelp size={17} />
+                    <p>
+                      {change === 0
+                        ? "The same amount left as an equal split."
+                        : money(Math.abs(change)) +
+                          (change > 0 ? " more" : " less") +
+                          " left than an equal split."}
+                    </p>
+                    {person.refined !== false && (
+                      <p>
+                        Wants to keep {money(person.reserve)} for personal
+                        spending and savings.
+                      </p>
                     )}
-                    <span>
-                      {person.refined === false
-                        ? selected!.remainingCents[i] < 0
-                          ? "Shared contribution exceeds income"
-                          : "Personal bills & savings not added yet"
-                        : cushion >= 0
-                          ? "Keeps your " +
-                            money(person.reserve) +
-                            " preference"
-                          : money(-cushion) +
-                            " below the " +
-                            money(person.reserve) +
-                            " you want to keep"}
-                    </span>
                   </div>
-                </article>
-              );
-            })}
+                );
+              })}
+            </div>
+            <SplitInsight
+              names={[a.name, b.name]}
+              incomes={[a.income, b.income]}
+              total={total}
+              method={method}
+              contributions={selected.contributionsCents}
+              remaining={selected.remainingCents}
+              personal={[a.personal, b.personal]}
+              reserves={[a.reserve, b.reserve]}
+              refined={[a, b].map((p) => p.refined !== false)}
+              onCompareIncome={
+                busy || guideBusy ? undefined : () => setMethod("proportional")
+              }
+            />
           </div>
-          <SplitInsight
-            names={[a.name, b.name]}
-            incomes={[a.income, b.income]}
-            total={total}
-            method={method}
-            contributions={selected.contributionsCents}
-            remaining={selected.remainingCents}
-            personal={[a.personal, b.personal]}
-            reserves={[a.reserve, b.reserve]}
-            refined={[a, b].map((p) => p.refined !== false)}
-            onCompareIncome={() => setMethod("proportional")}
-          />
-          {state.self.refined === false && (
-            <div className="soft-note">
-              <CircleHelp size={19} />
-              <p>
-                Your personal costs aren’t included yet.{" "}
-                <button className="text-button" onClick={onRefine}>
-                  Add your personal bills & savings
-                </button>
-              </p>
-            </div>
-          )}
-          {[a, b].some(
-            (person, index) =>
-              person.refined !== false && !selected!.minimumRemainingMet[index],
-          ) && (
-            <div className="soft-note amber">
-              <CircleHelp size={19} />
-              <p>
-                This split leaves less than one of you wants to keep. Try a
-                different contribution or a smaller shared budget, then decide
-                together.
-              </p>
-            </div>
-          )}
-        </section>
+        </details>
       )}
       {[a, b].some((person) => person.priority || person.concern) && (
-        <details className="perspectives">
+        <details className="budget-extra">
           <summary>
-            Your priorities, side by side <Users size={17} />
+            <span>
+              Your priorities, side by side
+              <small>What each of you wants this plan to make room for</small>
+            </span>
+            <Plus size={18} />
           </summary>
-          <div className="shared-priorities">
+          <div className="shared-priorities budget-extra-content">
             {[a, b].map((person, i) => (
               <div key={i}>
                 <span className={"avatar " + (i ? "peach" : "")}>
@@ -1290,61 +1277,75 @@ function Balance({
           </div>
         </details>
       )}
-      <section className="conversation-box">
-        <div>
-          <span className="overline">
-            <Sparkles size={15} /> YOUR NEXT CONVERSATION
+      <details
+        className="budget-extra budget-conversation"
+        open={guideExpanded}
+        onToggle={(event) => setGuideExpanded(event.currentTarget.open)}
+      >
+        <summary>
+          <span>
+            Help us talk about it
+            <small>Optional questions based on what you’ve both shared</small>
           </span>
-          <h3>Need help discussing this split?</h3>
-          <p>
-            Turn your shared priorities and this split into three questions and
-            a starting sentence. Only the answers you both chose to share are
-            sent to our AI provider, Groq.
-          </p>
-        </div>
-        <button
-          className="button secondary"
-          onClick={() => {
-            try {
-              onGuide(draft());
-            } catch (error) {
-              onError((error as Error).message);
-            }
-          }}
-          disabled={guideBusy || busy || !selected}
-        >
-          {guideBusy
-            ? "Preparing your guide…"
-            : state.guide && !changed
-              ? "View saved guide"
-              : "Make our conversation guide"}
-          <ArrowRight size={16} />
-        </button>
-        {changed && (
-          <p className="guide-save-note">
-            Preparing a guide saves this split as a new draft for both of you to
-            review.
-          </p>
-        )}
-        {guideBusy && <PlanAssembly compact kind="guide" />}
-        {state.guide && !changed && (
-          <div className="guide-output" aria-label="Your conversation guide">
-            <div className="guide-heading">
-              <MessageCircle size={19} />
-              <strong>
-                A starting point for {a.name} & {b.name}
-              </strong>
-            </div>
-            {state.guide.split(/\n\s*\n/).map((paragraph, i) => (
-              <p key={i}>{paragraph}</p>
-            ))}
-            <span className="fine-print">
-              A generated conversation aid. Keep what fits, change what doesn’t.
+          <Plus size={18} />
+        </summary>
+        <section className="conversation-box budget-extra-content">
+          <div>
+            <span className="overline">
+              <Sparkles size={15} /> YOUR NEXT CONVERSATION
             </span>
+            <h3>A little help finding the words.</h3>
+            <p>
+              Get three questions and a starting sentence for this split. Only
+              the answers you both chose to share are sent to our AI provider,
+              Groq.
+            </p>
           </div>
-        )}
-      </section>
-    </>
+          {(!state.guide || changed || guideBusy) && (
+            <button
+              className="button secondary"
+              onClick={() => {
+                try {
+                  onGuide(draft());
+                } catch (error) {
+                  onError((error as Error).message);
+                }
+              }}
+              disabled={guideBusy || busy || !selected}
+            >
+              {guideBusy
+                ? "Preparing your guide…"
+                : "Make our conversation guide"}
+              <ArrowRight size={16} />
+            </button>
+          )}
+          {changed && (
+            <p className="guide-save-note">
+              Preparing a guide saves this split as a new proposal for both of
+              you to review. It does not confirm agreement.
+            </p>
+          )}
+          {guideBusy && <PlanAssembly compact kind="guide" />}
+          {state.guide && !changed && (
+            <div className="guide-output" aria-label="Your conversation guide">
+              <div className="guide-heading">
+                <MessageCircle size={19} />
+                <strong>
+                  A starting point for {a.name} & {b.name}
+                </strong>
+              </div>
+              {state.guide.split(/\n\s*\n/).map((paragraph, i) => (
+                <p key={i}>{paragraph}</p>
+              ))}
+              <span className="fine-print">
+                A generated conversation aid. Keep what fits, change what
+                doesn’t.
+              </span>
+            </div>
+          )}
+        </section>
+      </details>
+    </div>
   );
 }
 function Agreement({
@@ -1377,7 +1378,7 @@ function Agreement({
           <span className={"pill " + (agreed ? "success" : "")}>
             {agreed
               ? "AGREED TOGETHER"
-              : "DRAFT · VERSION " + state.planVersion}
+              : "SAVED PROPOSAL · VERSION " + state.planVersion}
           </span>
         </div>
         <p className="overline">OUR FIRST MONTH</p>
