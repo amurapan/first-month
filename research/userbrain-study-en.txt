@@ -1,0 +1,64 @@
+FIRST MONTH — free panel test setup, prepared 2026-11-14
+STATUS: draft only; no study submitted, no testers recruited, no results.
+Prerequisites: a working demo URL and a researcher account.
+
+Verified offer: Userbrain's pricing page advertises a 30-day trial with two
+panel testers and no credit card. Test setup limits and trial terms can change.
+https://www.userbrain.com/en/pricing/
+https://help.userbrain.com/help/what-is-a-test-setup-and-how-many-do-i-get
+
+PURPOSE
+Observe whether individual people can understand the proposal, complete their
+part, and explain the resulting plan. Two panel testers are not necessarily
+partners. This study must not be described as a joint couple test.
+
+PREFERRED AUDIENCE
+US residents, 25–45, fluent English, desktop or laptop for the first build.
+If a screener is available in the trial, ask neutrally:
+Which describes your current living situation?
+  — Living with a romantic partner for less than 12 months
+  — Living with a romantic partner for 12 months or longer
+  — Planning to move in with a romantic partner within three months
+  — Living separately with no move planned / other
+For discovery, prefer the first option. If this narrow audience is unavailable
+before the deadline, use broader adult testers for usability and label the
+sample accordingly. Do not silently count them as target-customer validation.
+
+STUDY TITLE
+Planning shared household expenses
+
+INTRODUCTION
+You are testing an early prototype, not your finances or relationship. Please
+think aloud. Use the fictional details supplied by the demo. Do not enter
+your own financial information. It is fine to disagree with a proposed plan.
+The partner shown in the single-person demo is simulated and clearly labelled.
+
+TASKS — target 10–15 minutes; adapt to the actual deployed build
+1. Before starting, explain what you think this page helps you do. What
+   outcome would you expect? Do not read our explanation to the tester.
+2. Using the fictional profile supplied by the demo, enter your constraints
+   and decide what you would share. Explain what you expect the partner to see.
+3. Compare the available arrangements. Choose one you can explain or mark
+   what prevents you from choosing. There is no preferred split method.
+4. Review the plan. Explain how much each person contributes, what expenses
+   are included, who pays the bills, and when money changes hands.
+5. The demo changes one income. Update the proposal. Explain whether the
+   old agreement is still in effect and what the other person needs to do.
+6. Which part, if any, would be useful compared with how you currently handle
+   shared expenses? Which part would you skip? A preference for your existing
+   method is useful feedback too.
+
+OBSERVE
+Misunderstood sharing, incorrect explanation of amounts, incomplete payment
+instructions, confusion about the other person's agreement, unnecessary steps.
+Keep past behavior, observed actions and opinions separate in notes.
+
+RECORD HONESTLY
+Two individual usability sessions, if both complete. Not two couple interviews,
+not proof of willingness to pay, not observed retention. Actual target-audience
+eligibility and completion times are unknown until the sessions take place.
+
+DO NOT LAUNCH UNTIL
+The demo works end to end, simulated partner is labelled, there are no real
+financial data in the demo, the free allowance is visible, and ordering the
+test does not require a paid plan. Do not start a paid subscription.

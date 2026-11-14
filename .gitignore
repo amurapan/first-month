@@ -1,0 +1,11 @@
+# Raw research notes can contain participants' private information.
+research/private/
+research/*.zip
+
+# Local credentials must stay out of the public hackathon repository.
+.env
+.env.*
+!.env.example
+node_modules/
+coverage/
+.DS_Store

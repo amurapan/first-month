@@ -1,0 +1,5 @@
+﻿scenario,fictional,income_alex,income_jordan,shared_total,contribution_alex,contribution_jordan,remaining_alex,remaining_jordan,alex_preference_met,jordan_preference_met
+initial_equal,True,6000,3000,3400,1700.00,1700.00,3400.00,1000.00,True,False
+initial_proportional,True,6000,3000,3400,2266.67,1133.33,2833.33,1566.67,True,True
+income_drop_proportional,True,6000,2400,3400,2428.57,971.43,2671.43,1128.57,True,False
+income_drop_custom_example,True,6000,2400,3400,2500.00,900.00,2600.00,1200.00,True,True

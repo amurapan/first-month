@@ -1,0 +1,13 @@
+{
+  "name": "first-month",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Help two people agree on their first month of shared expenses.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "reviewed_at": "2026-11-14",
+  "method": "Targeted desk research of public first-person accounts. Original post bodies read; search extracts used for absolute publication dates. No outreach, interviews or participant tests were conducted.",
+  "scope": "Seven 2026 threads: three describe recent cohabitation at the time of posting; four describe planning to move in. Convenience sample, not a representative sample of US couples.",
+  "limitations": [
+    "Accounts and identities are unverified; posts may be incomplete or fictional.",
+    "Only one partner's account is available. Claims about the other partner are not independent evidence.",
+    "US location is explicit in E06 only; dollars and English do not verify residence.",
+    "Conflict forums overrepresent disagreements, while product forums overrepresent engaged product users.",
+    "A current disagreement does not establish what the couple forgot to discuss before moving in.",
+    "None of these people saw our concept. Usefulness, willingness to pay and retention remain untested."
+  ],
+  "cases": [
+    {
+      "id": "E01",
+      "date": "2026-02-04",
+      "stage": "recently cohabiting at time of post",
+      "location": "not confirmed",
+      "ages": "36 and 28, self-reported",
+      "account_ru": "Доходы $5 000 и $2 000 в месяц. Автор подобрала взнос партнёра $400 с учётом его учебных и других расходов; ипотеку оставила своей. Планирует пересмотр в январе.",
+      "current_method_ru": "Индивидуально рассчитанный взнос и отдельная ответственность за счета.",
+      "forgotten_topic_ru": "Не установлено. Автор описывает расчёт после переезда, но не полный перечень прежних договорённостей.",
+      "inference_ru": "В сценарии полезны личные обязательства, конкретный плательщик и дата пересмотра. Универсальная пропорция может не соответствовать выбранным условиям.",
+      "counterevidence_ru": "Автор уже смогла договориться и посчитать без нового приложения.",
+      "url": "https://www.reddit.com/r/MiddleClassFinance/comments/1qvkumc/so_moved_in_figured_out_how_to_split_finances/"
+    },
+    {
+      "id": "E02",
+      "date": "2026-04-03",
+      "stage": "recently cohabiting at time of post",
+      "location": "not confirmed",
+      "ages": "not stated",
+      "account_ru": "После переезда автор сообщает об увеличении своих расходов на продукты более чем вдвое и о выбрасываемой еде. Покупки и готовку делят между собой.",
+      "current_method_ru": "Точная формула в исходном посте не указана; автор хочет платить за потребляемую ею еду.",
+      "forgotten_topic_ru": "Не установлено. Нынешний спор касается объёма покупок и состава общих расходов.",
+      "inference_ru": "Нужно отдельно согласовать продукты и личные покупки; одной доли от общего бюджета недостаточно.",
+      "counterevidence_ru": "Может помочь обычный список покупок и лимит расходов. Польза платного посредника не показана.",
+      "url": "https://www.reddit.com/r/AITAH/comments/1sbl5ou/aitah_for_not_wanting_to_split_groceries_when_he/"
+    },
+    {
+      "id": "E03",
+      "date": "2026-04-01",
+      "stage": "planning to cohabit",
+      "location": "not confirmed",
+      "ages": "not stated",
+      "account_ru": "Доходы $135 000 и $85 000 в год; у более зарабатывающего партнёра есть долги. Обсуждают жильё за $2 200 и равные взносы на общий счёт первого числа.",
+      "current_method_ru": "Предложение 50/50 для будущих общих расходов; после переезда ещё не проверено.",
+      "forgotten_topic_ru": "Переезд впереди. Не решён вопрос, как личный долг должен влиять на распределение расходов.",
+      "inference_ru": "Не вычитать личные долги автоматически из базы распределения: это отдельное решение обоих.",
+      "counterevidence_ru": "Пара уже обсуждает конкретную схему без продукта; ей может требоваться только проверка расчётов.",
+      "url": "https://www.reddit.com/r/Money/comments/1s94zji/moving_in_and_splitting_expenses/"
+    },
+    {
+      "id": "E04",
+      "date": "2026-05-18",
+      "stage": "cohabiting since August 2025, about nine months at post",
+      "location": "not confirmed",
+      "ages": "author 31; partner not stated",
+      "account_ru": "Автор пользуется YNAB и после переезда к партнёру оплачивает 60% фиксированных расходов. Рост накоплений связывает и с новой работой, и с совместной жизнью.",
+      "current_method_ru": "Пропорциональное распределение 60/40 и существующий бюджетный инструмент.",
+      "forgotten_topic_ru": "Не заявлены ни пропущенные темы, ни конфликт вокруг распределения.",
+      "inference_ru": "В тесте нужна возможность выбрать уже работающий способ вместо нового продукта.",
+      "counterevidence_ru": "Положительный опыт с существующим решением. Сам переезд не доказывает неудовлетворённую потребность.",
+      "url": "https://www.reddit.com/r/ynab/comments/1th0y0f/crazy_for_me_to_be_almost_worth_100k_super_proud/"
+    },
+    {
+      "id": "E05",
+      "date": "2026-09-04",
+      "stage": "planning to cohabit",
+      "location": "not confirmed",
+      "ages": "not stated",
+      "account_ru": "При доходах около $9 000 и чуть больше $3 000 один партнёр предлагает 50/50 и более дорогое жильё. Автор предлагает пропорциональные взносы или более дешёвое жильё.",
+      "current_method_ru": "Согласованной схемы совместного проживания пока нет.",
+      "forgotten_topic_ru": "Тему обсуждают до переезда; разногласие не связано с отсутствием разговора как такового.",
+      "inference_ru": "Сравнивать можно не только доли, но и сам бюджет жилья; допустим итог «пока не договорились».",
+      "counterevidence_ru": "Расчёт может сделать последствия видимыми, но не разрешить несовместимые ожидания.",
+      "url": "https://www.reddit.com/r/AITA_Relationships/comments/1w7jtim/aita_for_telling_my_boyfriend_im_not_paying_half/"
+    },
+    {
+      "id": "E06",
+      "date": "2026-09-01",
+      "stage": "planning to cohabit",
+      "location": "US self-report: NYC and Connecticut; not independently verified",
+      "ages": "36 and 34, self-reported",
+      "account_ru": "Партнёры с примерно одинаковыми доходами спорят о жизни в Нью-Йорке или Коннектикуте: различаются стоимость жилья, дорога на работу и предпочтения.",
+      "current_method_ru": "Общего жилья и согласованного бюджета ещё нет.",
+      "forgotten_topic_ru": "Вопрос обсуждают заранее; не согласованы приоритеты.",
+      "inference_ru": "Денежные последствия нужно показывать рядом с неденежными условиями, не объявляя дешёвый вариант автоматически лучшим.",
+      "counterevidence_ru": "Это проблема выбора образа жизни. Узкий калькулятор распределения может не помочь.",
+      "url": "https://www.reddit.com/r/relationship_advice/comments/1w48dfd/36m_and_34f_together_for_1_year_cant_agree_on/"
+    },
+    {
+      "id": "E07",
+      "date": "2026-10-05",
+      "stage": "planning to cohabit in next few months",
+      "location": "not confirmed",
+      "ages": "not stated",
+      "account_ru": "Пара уже использует YNAB Together с отдельными бюджетами. Перед переездом выбирает между третьим общим бюджетом, одним объединённым и отдельными долями расходов.",
+      "current_method_ru": "Два личных бюджета; будущую организацию общих расходов ещё обсуждают.",
+      "forgotten_topic_ru": "Переезд впереди. Не выбраны порядок оплаты и учёт переменных покупок, в частности продуктов.",
+      "inference_ru": "Результат должен объяснять исполнение плана: кто платит и как сверяют переменные расходы.",
+      "counterevidence_ru": "Пара уже платит за инструмент. Дополнительная подписка может оказаться лишней.",
+      "url": "https://www.reddit.com/r/ynab/comments/1wygjf9/transitioning_to_cohabitating_seeking_advice/"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+DISCOVERY INTERVIEW — draft, not yet run
+20 minutes. Show the concept only after the past-behavior questions.
+
+Recruitment text, ready to adapt when a permitted channel is available:
+We are a hackathon team exploring how couples organize shared household
+expenses when they first move in together. We would like to hear about what
+you actually did and try a short paper exercise. We are looking for adults
+aged 25–45 living in the US who began living with a romantic partner in the
+past 12 months. Participation is voluntary and unpaid. You can skip any
+question. Approximate figures are enough; no statements or account access
+are needed. We are equally interested in arrangements that work well.
+
+SCREENING — ask before inviting to a session
+1. What country do you currently live in?
+2. Which age band applies: under 25 / 25–34 / 35–45 / 46+?
+3. Which describes your current situation: living with a romantic partner /
+   planning to move in / living separately without a move planned?
+4. When did you start living together? Was this your first time living
+   with this partner? Approximate month/year is enough.
+5. Are you personally involved in arranging or paying shared expenses?
+6. Are you willing to discuss your experience for 20 minutes? Your partner
+   need not attend the individual interview. A joint test requires both
+   people's separate agreement.
+
+Do not select only people who report financial conflict. Record planning
+couples separately from people who have already moved in. Target three to
+five households initially, not a statistical estimate of the market.
+
+OPENING
+We are testing our assumptions, not your relationship or financial choices.
+There are no right answers. You can stop or skip a topic. May I take brief
+anonymous notes? Do not record audio/video unless separately agreed.
+
+BEFORE SHOWING ANY CONCEPT — about 12 minutes
+1. Walk me through how you decided who would pay for what when you moved in.
+2. What did you explicitly agree on before the move? What remained open?
+3. Walk me through the most recent shared purchase or bill, from deciding
+   to buy/pay it through settling up. Who did what?
+4. What, if anything, surprised you about shared expenses after moving in?
+   Tell me about one specific occasion. What happened next?
+5. Have you changed your arrangement? What triggered that change, and how
+   did you reach the new arrangement? If nothing changed, what works well?
+6. What do you currently use to manage this? What have you tried or paid
+   for? How much time or effort does your current approach take?
+7. Is there anything you wish you had discussed earlier? Why then? Do not
+   supply a list of categories unless the participant asks for examples.
+
+Neutral follow-ups: When was that? What happened next? How did you decide?
+Who took the next step? Can you give a specific example?
+Avoid: Would this app help? Would you pay $10? Don't you find this stressful?
+
+CONCEPT EXERCISE — about 6 minutes
+Show a blank worksheet.txt. Say:
+This is a draft tool for agreeing on one month of shared expenses. Imagine
+using it at the point you described. Which part, if any, would have changed
+what you actually did? Which part would be unnecessary? What is missing?
+
+If comfortable, ask them to work through the relevant section using rounded
+or fictional values. Observe actions before asking for opinions.
+Ask: What would you do with this result next? How does it compare with the
+way you already handle this? It is fine to prefer your current approach.
+
+CLOSE — about 2 minutes
+Ask which decision, if any, remains unresolved. Ask permission before a
+future follow-up or inviting their partner. Do not count stated enthusiasm
+as purchase intent or evidence of retention.
+
+Keep records separate: past behavior / observed task action / opinion /
+researcher interpretation. Do not put real financial details or identifiers
+in a public hackathon repository. Record approximate figures only if needed.
