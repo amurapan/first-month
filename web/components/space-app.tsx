@@ -16,6 +16,8 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import InvitationEntry from "./invitation-entry";
+import Feedback from "./feedback";
 import { Brand } from "./brand";
 import type { SpaceState, SpaceAction } from "@/lib/life-types";
 import MonthBook from "./space/month-book";
@@ -47,11 +49,17 @@ export default function SpaceApp({ id }: { id: string }) {
     [copyLink, setCopyLink] = useState("");
   const requestNumber = useRef(0),
     working = useRef(false);
+  // A new fragment can change the private role or open an invitation in this same tab.
+  useEffect(() => {
+    const changeAccess = () => location.reload();
+    window.addEventListener("hashchange", changeAccess);
+    return () => window.removeEventListener("hashchange", changeAccess);
+  }, []);
   useEffect(() => {
     const url = new URL(location.href),
       hash = new URLSearchParams(url.hash.slice(1));
     let access = hash.get("key") || "";
-    if (!access)
+    if (!access && !hash.get("invite"))
       try {
         access = sessionStorage.getItem("fm:key:" + id) || "";
       } catch {}
@@ -99,17 +107,20 @@ export default function SpaceApp({ id }: { id: string }) {
   useEffect(() => {
     if (error)
       requestAnimationFrame(() =>
-        document
-          .querySelector('[role="alert"]')
-          ?.scrollIntoView({
-            block: "start",
-            behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-              ? "instant"
-              : "smooth",
-          }),
+        document.querySelector('[role="alert"]')?.scrollIntoView({
+          block: "start",
+          behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "instant"
+            : "smooth",
+        }),
       );
   }, [error]);
-  function navigate(next: Tab, decision: string | null = null) {
+  function navigate(
+    next: Tab,
+    decision: string | null = null,
+    period?: string,
+    entry?: "expense",
+  ) {
     setTab(next);
     setSelected(decision);
     setError("");
@@ -118,7 +129,11 @@ export default function SpaceApp({ id }: { id: string }) {
     for (const p of ["entry", "entryId", "category", "original"])
       url.searchParams.delete(p);
     if (next === "months")
-      url.searchParams.set("month", new Date().toISOString().slice(0, 7));
+      url.searchParams.set(
+        "month",
+        period || new Date().toISOString().slice(0, 7),
+      );
+    if (entry && next === "months") url.searchParams.set("entry", entry);
     decision
       ? url.searchParams.set("decision", decision)
       : url.searchParams.delete("decision");
@@ -180,29 +195,6 @@ export default function SpaceApp({ id }: { id: string }) {
     if (state && step !== undefined)
       writeDraft("fm:step:" + id + ":" + state.role, step);
     return "/plan/" + id + "#key=" + key;
-  }
-  async function join() {
-    working.current = true;
-    setBusy(true);
-    try {
-      const r = await fetch("/api/rooms/" + id, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "join", invite: invitation }),
-      });
-      const data = (await r.json()) as SpaceState & {
-        error?: string;
-        token: string;
-        invite: string;
-      };
-      if (!r.ok) throw new Error(data.error);
-      history.replaceState({}, "", "/space/" + id + "#key=" + data.token);
-      location.reload();
-    } catch (e) {
-      setError((e as Error).message);
-      setBusy(false);
-      working.current = false;
-    }
   }
   async function copy(value: string) {
     try {
@@ -274,41 +266,27 @@ export default function SpaceApp({ id }: { id: string }) {
         <p>Opening your shared home…</p>
       </div>
     );
+  if (ready && invitation && !key)
+    return <InvitationEntry id={id} invitation={invitation} />;
   if (!state)
     return (
       <div className="space-loading">
         <Brand />
         <div className="surface entry-card">
           <LockKeyhole size={30} />
-          <h1>
-            {invitation ? "A space for both of you." : "Find your way home."}
-          </h1>
-          <p>
-            {invitation
-              ? "Join your partner, add your side, and make money decisions together. You choose what to share."
-              : "Open your saved personal link to return to your household. You can also restore access using a personal link you saved."}
-          </p>
+          <h1>Find your way home.</h1>
+          <p>Open your saved personal link to return to your household.</p>
           {error && (
             <p role="alert" className="error">
               {error}
             </p>
           )}
-          {invitation ? (
-            <button className="button primary" disabled={busy} onClick={join}>
-              {busy ? "Joining…" : "Join our space"}
-              <ArrowRight size={17} />
-            </button>
-          ) : (
-            <>
-              <a className="button primary" href="/spaces">
-                Find my spaces
-                <ArrowRight size={17} />
-              </a>
-              <a className="text-button" href="/start">
-                Start a new space
-              </a>
-            </>
-          )}
+          <a className="button primary" href="/spaces">
+            Find my spaces <ArrowRight size={17} />
+          </a>
+          <a className="text-button" href="/start">
+            Start a new space
+          </a>
         </div>
       </div>
     );
@@ -547,6 +525,7 @@ export default function SpaceApp({ id }: { id: string }) {
               <RefreshCw size={13} />
               Refresh
             </button>
+            <Feedback id={id} accessKey={key} role={state.role} screen={tab} />
             <a href="/privacy">Privacy</a>
             <a href="/terms">Terms</a>
           </div>

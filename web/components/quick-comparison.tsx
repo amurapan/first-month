@@ -3,12 +3,9 @@ import { AnimatedMoney } from "@/components/motion";
 import { Check, CircleHelp, ArrowRight } from "lucide-react";
 import { previewBudget } from "@/lib/domain/preview.js";
 
-export const money = (cents: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: cents % 100 ? 2 : 0,
-  }).format(cents / 100);
+import { money } from "@/lib/money";
+export { money } from "@/lib/money";
+import SplitInsight from "./split-insight";
 export type QuickMethod = "equal" | "proportional";
 type Props = {
   income: number;
@@ -132,6 +129,16 @@ export default function QuickComparison({
           );
         })}
       </div>
+      <SplitInsight
+        names={names}
+        incomes={[income, partnerIncome]}
+        total={total}
+        method={active}
+        contributions={result.contributionsCents}
+        remaining={result.remainingAfterSharedCents}
+        estimate
+        onCompareIncome={busy ? undefined : () => onMethod("proportional")}
+      />
       <p className="quick-footnote">
         <ArrowRight size={15} /> Personal bills and savings haven’t been
         deducted. This is a starting estimate, ready to refine together.

@@ -1,4 +1,5 @@
 "use client";
+import NextAction from "./next-action";
 import { AnimatedMoney } from "@/components/motion";
 import {
   currentMonth,
@@ -36,6 +37,8 @@ export default function Overview({
   onNavigate: (
     tab: "home" | "months" | "decisions" | "reviews" | "settings",
     id?: string | null,
+    period?: string,
+    entry?: "expense",
   ) => void;
   planLink: (step?: number) => string;
   onInvite: () => Promise<void>;
@@ -105,109 +108,74 @@ export default function Overview({
           New decision
         </button>
       </div>
-      {!state.joined && (
-        <section className="new-invite-strip">
-          <div className="invite-duo">
-            <span>{state.self.name[0]}</span>
-            <span>+</span>
-          </div>
-          <div>
-            <h2>Your side is a start.</h2>
-            <p>
-              Invite {state.partner.name} to add theirs. You can start a
-              decision now.
+      <NextAction
+        state={state}
+        busy={busy}
+        onNavigate={onNavigate}
+        planLink={planLink}
+        onInvite={onInvite}
+        onShare={onShare}
+      />
+      {focus && (
+        <div className="home-focus home-focus-secondary">
+          <div className="home-focus-copy">
+            <p className="eyebrow">
+              {focus ? "YOUR NEXT CONVERSATION" : "ROOM FOR YOUR NEXT CHAPTER"}
             </p>
-          </div>
-          <button className="button primary" disabled={busy} onClick={onInvite}>
-            Invite my partner
-            <ArrowRight size={17} />
-          </button>
-        </section>
-      )}
-      {!state.self.shared && (
-        <div className="notice">
-          <LockKeyhole size={18} />
-          <div>
-            <strong>Your income is still private.</strong>
+            <h2>{focus ? focus.title : "What’s next\nfor your home?"}</h2>
             <p>
-              Sharing shows your saved income and optional details after your
-              partner also shares. It does not approve a plan.
+              {focus
+                ? focus.status === "agreed"
+                  ? "You both chose a plan. Keep an eye on the next step."
+                  : focus.bothAnswered
+                    ? "Both perspectives are in. See where they meet, and compare the ways forward."
+                    : "A little space for each of you to say what feels comfortable."
+                : "A purchase, a shared subscription, or a goal you want to make room for. Start with what’s actually on your minds."}
             </p>
+            {focus && (
+              <div className="focus-facts">
+                <strong>
+                  <AnimatedMoney
+                    value={focus.proposal?.amount ?? focus.amount}
+                    enter
+                  />
+                </strong>
+                <span>
+                  {focus.status === "agreed" ? (
+                    <>
+                      <CheckCheck size={16} />
+                      Agreed together
+                    </>
+                  ) : (
+                    suggestion || "Add both perspectives"
+                  )}
+                </span>
+              </div>
+            )}
+            <button
+              className="button secondary"
+              onClick={() => onNavigate("decisions", focus?.id || "new")}
+            >
+              {focus
+                ? focus.status === "agreed"
+                  ? "Open our plan"
+                  : focus.bothAnswered
+                    ? "See our options"
+                    : focus.answers[state.role]?.shared
+                      ? "View the conversation"
+                      : "Add my perspective"
+                : "Start a decision"}
+              <ArrowUpRight size={18} />
+            </button>
           </div>
-          <button
-            className="button secondary"
-            disabled={busy}
-            onClick={onShare}
-          >
-            Share my side
-          </button>
+          <div className="home-focus-scene">
+            <HomeScene compact phase={focus?.status === "agreed" ? 2 : 1} />
+            <span className="scene-caption">
+              Make room for the life you’re building.
+            </span>
+          </div>
         </div>
       )}
-      {state.joined && state.self.shared && !state.bothShared && (
-        <div className="notice">
-          <Clock size={18} />
-          <p>
-            Your side is ready. {state.partner.name} can share their own numbers
-            when they’re comfortable.
-          </p>
-        </div>
-      )}
-      <div className="home-focus">
-        <div className="home-focus-copy">
-          <p className="eyebrow">
-            {focus ? "YOUR NEXT CONVERSATION" : "ROOM FOR YOUR NEXT CHAPTER"}
-          </p>
-          <h2>{focus ? focus.title : "What’s next\nfor your home?"}</h2>
-          <p>
-            {focus
-              ? focus.status === "agreed"
-                ? "You both chose a plan. Keep an eye on the next step."
-                : focus.bothAnswered
-                  ? "Both perspectives are in. See where they meet, and compare the ways forward."
-                  : "A little space for each of you to say what feels comfortable."
-              : "A purchase, a shared subscription, or a goal you want to make room for. Start with what’s actually on your minds."}
-          </p>
-          {focus && (
-            <div className="focus-facts">
-              <strong>
-                <AnimatedMoney
-                  value={focus.proposal?.amount ?? focus.amount}
-                  enter
-                />
-              </strong>
-              <span>
-                {focus.status === "agreed" ? (
-                  <>
-                    <CheckCheck size={16} />
-                    Agreed together
-                  </>
-                ) : (
-                  suggestion || "Add both perspectives"
-                )}
-              </span>
-            </div>
-          )}
-          <button
-            className="button primary"
-            onClick={() => onNavigate("decisions", focus?.id || "new")}
-          >
-            {focus
-              ? focus.status === "agreed"
-                ? "Open our plan"
-                : focus.bothAnswered
-                  ? "See our options"
-                  : "Add my perspective"
-              : "Start a decision"}
-            <ArrowUpRight size={18} />
-          </button>
-        </div>
-        <div className="home-focus-scene">
-          <HomeScene compact phase={focus?.status === "agreed" ? 2 : 1} />
-          <span className="scene-caption">
-            Make room for the life you’re building.
-          </span>
-        </div>
-      </div>
       {state.bothShared && (
         <section className="home-month-strip">
           <ReceiptText size={30} />

@@ -8,6 +8,7 @@ import {
   json,
   token,
 } from "@/lib/room";
+import { ownFeedback } from "@/lib/feedback";
 import { workspace, reviewView } from "@/lib/life";
 export async function POST(
   request: Request,
@@ -33,6 +34,7 @@ export async function POST(
         .all<{ data: string }>();
       return json({
         format: "first-month-export-v1",
+        feedback: await ownFeedback(id, role),
         exportedAt: new Date().toISOString(),
         ...result,
         householdReviews: reviews.results.map((r) =>
@@ -74,6 +76,7 @@ export async function POST(
         "household_reviews",
         "plan_history",
         "household_months",
+        "product_feedback",
       ];
       const statements = tables.map((table) =>
         database()

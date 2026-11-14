@@ -3,6 +3,7 @@ import "./globals.css";
 import "./redesign.css";
 import "./month.css";
 import "./motion.css";
+import "./onboarding.css";
 export const metadata: Metadata = {
   title: "First Month — Make room for both of you",
   description:

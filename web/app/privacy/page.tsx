@@ -29,6 +29,24 @@ export default function Privacy() {
         mode in the monthly ledger. Anyone with a personal link can access and
         act as that role.
       </p>
+      <h2>Invitations and product feedback</h2>
+      <p>
+        An unused invitation shows the inviting partner’s name and whether a
+        starting comparison has been saved. It does not reveal incomes, costs,
+        answers or estimates. Opening the invitation does not join the space;
+        that requires a separate action.
+      </p>
+      <p>
+        Product feedback is visible to its author and the First Month team,
+        never to the other partner. We store your note, category, screen name,
+        household reference, role, sample-household flag and submission time.
+        Financial values and access links are not attached automatically.
+        Feedback is not sent to the conversation provider. You can view or
+        delete your notes in the feedback form; they are included in your own
+        data export and removed when the space is deleted. Unfinished feedback
+        may be saved in your browser. The form does not collect an email address
+        or send notifications.
+      </p>
       <h2>Generated conversation support</h2>
       <p>
         When you request a conversation guide or recap, the service sends

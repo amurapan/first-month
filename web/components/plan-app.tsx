@@ -1,4 +1,7 @@
 "use client";
+import InvitationEntry from "./invitation-entry";
+import Feedback from "./feedback";
+import SplitInsight from "./split-insight";
 import { AnimatedMoney, PlanAssembly } from "@/components/motion";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -113,6 +116,12 @@ export default function PlanApp({ id }: { id: string }) {
     [booted, setBooted] = useState(false);
   const [guideBusy, setGuideBusy] = useState(false);
   const initialized = useRef(false);
+  // A new fragment can change the private role or open an invitation in this same tab.
+  useEffect(() => {
+    const changeAccess = () => location.reload();
+    window.addEventListener("hashchange", changeAccess);
+    return () => window.removeEventListener("hashchange", changeAccess);
+  }, []);
   useEffect(() => {
     const params = new URLSearchParams(location.hash.slice(1)),
       key =
@@ -254,33 +263,6 @@ export default function PlanApp({ id }: { id: string }) {
       setBusy(false);
     }
   }
-  async function join() {
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/rooms/" + id, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "join", invite: invitation }),
-      });
-      const data = (await response.json()) as State & {
-        error?: string;
-        token: string;
-        invite?: string;
-      };
-      if (!response.ok) throw new Error(data.error);
-      try {
-        sessionStorage.setItem("fm:key:" + id, data.token);
-      } catch {
-        /* The personal link still grants access. */
-      }
-      history.replaceState({}, "", "/plan/" + id + "#key=" + data.token);
-      location.reload();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Please try again.");
-      setBusy(false);
-    }
-  }
   async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -393,44 +375,7 @@ export default function PlanApp({ id }: { id: string }) {
       setGuideBusy(false);
     }
   }
-  if (invitation)
-    return (
-      <div className="join-page">
-        <Brand />
-        <div className="join-card">
-          <span className="section-icon">
-            <Users size={28} />
-          </span>
-          <p className="eyebrow">YOU’RE INVITED</p>
-          <h1>
-            A little more
-            <br />
-            <em>on the same page.</em>
-          </h1>
-          <p>
-            Your partner started a space for your first month together. Add your
-            side, then find a plan that works for both of you.
-          </p>
-          <button
-            className="button primary full"
-            disabled={busy}
-            onClick={join}
-          >
-            {busy ? "Joining…" : "Join our space"}
-            <ArrowRight size={18} />
-          </button>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <p className="fine-print">
-            This invitation can be claimed once. You’ll get your own personal
-            access link.
-          </p>
-        </div>
-      </div>
-    );
+  if (invitation) return <InvitationEntry id={id} invitation={invitation} />;
   if (!state)
     return (
       <div className="join-page">
@@ -862,6 +807,12 @@ export default function PlanApp({ id }: { id: string }) {
             />
           )}
           <footer className="workspace-footer">
+            <Feedback
+              id={id}
+              accessKey={access}
+              role={state.role}
+              screen="plan"
+            />
             <span>
               <LockKeyhole size={13} /> Your space. Your pace.
             </span>
@@ -1569,6 +1520,18 @@ function Balance({
               );
             })}
           </div>
+          <SplitInsight
+            names={[a.name, b.name]}
+            incomes={[a.income, b.income]}
+            total={total}
+            method={method}
+            contributions={selected.contributionsCents}
+            remaining={selected.remainingCents}
+            personal={[a.personal, b.personal]}
+            reserves={[a.reserve, b.reserve]}
+            refined={[a, b].map((p) => p.refined !== false)}
+            onCompareIncome={() => setMethod("proportional")}
+          />
           {state.self.refined === false && (
             <div className="soft-note">
               <CircleHelp size={19} />

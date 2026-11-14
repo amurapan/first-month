@@ -20,6 +20,23 @@ export const usage = sqliteTable("usage_limits", {
   count: integer("count").notNull().default(0),
 });
 
+export const productFeedback = sqliteTable(
+  "product_feedback",
+  {
+    id: text("id").primaryKey(),
+    roomId: text("room_id").notNull(),
+    role: text("role").notNull(),
+    kind: text("kind").notNull(),
+    screen: text("screen").notNull(),
+    message: text("message").notNull(),
+    demo: integer("demo").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("feedback_room_role").on(table.roomId, table.role, table.createdAt),
+  ],
+);
+
 export const householdDecisions = sqliteTable(
   "household_decisions",
   {
