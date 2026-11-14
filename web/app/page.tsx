@@ -125,7 +125,7 @@ export default function Home() {
         <nav>
           <a href="#how">The idea</a>
           <a href={recent || "/spaces"}>
-            {recent ? "Our home" : "Open our space"}
+            {recent ? "Open our space" : "Find our space"}
           </a>
           <a className="button primary" href="/start">
             Get started

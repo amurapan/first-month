@@ -79,18 +79,18 @@ export default function Privacy() {
       <h2>Export, retention, and deletion</h2>
       <p>
         Saved household records remain until the space is deleted. Open{" "}
-        <strong>Our space → Export my data</strong> to download your own and
-        mutually shared records; your partner’s private answers are excluded.
-        Either person with a valid personal link can explicitly delete the
-        shared space, which removes active records and disables both links.
+        <strong>Settings & access → Export my data</strong> to download your own
+        and mutually shared records; your partner’s private answers are
+        excluded. Either person with a valid personal link can explicitly delete
+        the shared space, which removes active records and disables both links.
         Copies previously exported or downloaded by either person are not
         remotely deleted. Infrastructure backups and operational logs may remain
         according to the hosting providers’ retention processes.
       </p>
       <p>
-        You can replace your personal access link from Our space. Its previous
-        version will stop working. Without a valid link or a backup, we cannot
-        reliably verify ownership or recover a role.
+        You can replace your personal access link from Settings & access. Its
+        previous version will stop working. Without a valid link or a backup, we
+        cannot reliably verify ownership or recover a role.
       </p>
       <h2>Contact</h2>
       <p>

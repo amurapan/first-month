@@ -15,6 +15,7 @@ import QuickComparison, {
 import { inputCents } from "@/lib/domain/preview.js";
 
 type Props = {
+  showInvitation?: boolean;
   income: number;
   total: number;
   names: [string, string];
@@ -32,6 +33,7 @@ type Props = {
   onError: (message: string) => void;
 };
 export default function SavedPreview({
+  showInvitation = true,
   income,
   total,
   names,
@@ -151,48 +153,50 @@ export default function SavedPreview({
           </form>
         </div>
       </details>
-      <div className="invite-after-result">
-        <span className="section-icon">
-          <Users size={24} />
-        </span>
-        <div>
-          <p className="overline">THE NEXT STEP IS TOGETHER</p>
-          <h2>
-            {joined
-              ? "Give your partner room to add their side."
-              : "Bring your partner into the conversation."}
-          </h2>
-          <p>
-            {joined
-              ? "Your partner has joined. Once you both share, this estimate becomes a comparison of your actual answers."
-              : "They’ll enter their own income and any details they want to include. Neither of you has agreed to a split yet."}
-          </p>
-          {!joined ? (
-            <button
-              className="button primary"
-              disabled={busy}
-              onClick={onInvite}
-            >
-              <Copy size={17} />
-              {shared
-                ? "Copy partner invitation"
-                : "Share my side & copy invitation"}
-            </button>
-          ) : !shared ? (
-            <button className="button primary" onClick={onProfile}>
-              Choose what to share <ArrowRight size={17} />
-            </button>
-          ) : (
-            <span className="invitation-status">
-              <Check size={17} /> Your side is ready to share
-            </span>
-          )}
-          <small>
-            Your saved income and optional answers become visible only when both
-            people choose to share.
-          </small>
+      {showInvitation && (
+        <div className="invite-after-result">
+          <span className="section-icon">
+            <Users size={24} />
+          </span>
+          <div>
+            <p className="overline">THE NEXT STEP IS TOGETHER</p>
+            <h2>
+              {joined
+                ? "Give your partner room to add their side."
+                : "Bring your partner into the conversation."}
+            </h2>
+            <p>
+              {joined
+                ? "Your partner has joined. Once you both share, this estimate becomes a comparison of your actual answers."
+                : "They’ll enter their own income and any details they want to include. Neither of you has agreed to a split yet."}
+            </p>
+            {!joined ? (
+              <button
+                className="button primary"
+                disabled={busy}
+                onClick={onInvite}
+              >
+                <Copy size={17} />
+                {shared
+                  ? "Copy partner invitation"
+                  : "Share my side & copy invitation"}
+              </button>
+            ) : !shared ? (
+              <button className="button primary" onClick={onProfile}>
+                Choose what to share <ArrowRight size={17} />
+              </button>
+            ) : (
+              <span className="invitation-status">
+                <Check size={17} /> Your side is ready to share
+              </span>
+            )}
+            <small>
+              Your saved income and optional answers become visible only when
+              both people choose to share.
+            </small>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

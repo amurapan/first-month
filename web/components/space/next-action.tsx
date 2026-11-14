@@ -1,8 +1,8 @@
 "use client";
-import { ArrowRight, Check, LockKeyhole } from "lucide-react";
+import { ArrowRight, Check, Clock, LockKeyhole } from "lucide-react";
 import type { SpaceState } from "@/lib/life-types";
 import { nextStep } from "@/lib/domain/next-step.js";
-type Tab = "home" | "months" | "decisions" | "reviews" | "settings";
+type Tab = "home" | "budget" | "months" | "decisions" | "reviews" | "settings";
 export default function NextAction({
   state,
   busy,
@@ -34,7 +34,7 @@ export default function NextAction({
     share: [
       "Two people. Two perspectives.",
       "Your income is still private. Sharing reveals your saved profile only after your partner also shares; it does not approve a plan.",
-      "Share my side",
+      "Share my saved details",
     ],
     waiting: [
       "Your side is ready.",
@@ -144,7 +144,17 @@ export default function NextAction({
           </p>
           <h2>{title}</h2>
           <p>{detail}</p>
-          {href ? (
+          {step.kind === "waiting" ? (
+            <div className="next-waiting">
+              <span>
+                <Clock size={17} />
+                No action needed from you
+              </span>
+              <a className="text-button" href={planLink(0)}>
+                View my saved details <ArrowRight size={15} />
+              </a>
+            </div>
+          ) : href ? (
             <a href={href} className="button primary">
               {label}
               <ArrowRight size={17} />
@@ -187,7 +197,7 @@ export default function NextAction({
             never accepts a plan.
           </p>
           <button className="text-button" disabled={busy} onClick={onShare}>
-            Share my side <ArrowRight size={15} />
+            Share my saved details <ArrowRight size={15} />
           </button>
           <a href={planLink(0)}>Review my details</a>
         </details>

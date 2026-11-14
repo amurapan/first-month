@@ -133,6 +133,14 @@ export type SpaceState = {
   householdReviews: ReviewView[];
   currentWeek: string;
   planHistory: PlanSnapshot[];
+  guide: string | null;
+  checkins: {
+    id: string;
+    date: string;
+    amount: number;
+    note: string;
+    role: Role;
+  }[];
 };
 export type SpaceAction = (
   action: string,

@@ -1,66 +1,31 @@
 "use client";
-import InvitationEntry from "./invitation-entry";
-import Feedback from "./feedback";
 import SplitInsight from "./split-insight";
 import { AnimatedMoney, PlanAssembly } from "@/components/motion";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ArrowRight,
-  ArrowUpRight,
   Check,
   CheckCheck,
-  ChevronLeft,
   CircleHelp,
-  Copy,
   House,
-  Leaf,
   LockKeyhole,
   Plus,
-  RefreshCw,
   Trash2,
   Users,
-  Wallet,
-  X,
-  CalendarDays,
   Download,
   MessageCircle,
   Sparkles,
   Printer,
 } from "lucide-react";
-import { Brand } from "@/components/brand";
 import SavedPreview from "@/components/saved-preview";
 import { readDraft, writeDraft, clearDraft } from "@/lib/browser-draft";
 import { calculateBudget } from "@/lib/domain/budget.js";
 import type { Profile, Expense, Plan, Role } from "@/lib/room";
 
-type State = {
-  id: string;
-  revision: number;
-  role: Role;
-  demo: boolean;
-  moveDate: string | null;
-  estimate: {
-    partnerIncome: number | null;
-    method: "equal" | "proportional";
-  } | null;
-  self: Profile;
-  partner: Partial<Profile> & { name: string };
-  bothShared: boolean;
-  joined: boolean;
-  expenses: Expense[];
-  plan: Plan;
-  planVersion: number;
-  decisions: Record<Role, string>;
-  calculation: ReturnType<typeof calculateBudget> | null;
-  guide: string | null;
-  checkins: {
-    id: string;
-    date: string;
-    amount: number;
-    note: string;
-    role: Role;
-  }[];
-};
+import type { SpaceState } from "@/lib/life-types";
+import { sections } from "@/lib/navigation";
+import SharingStatus from "./space/sharing-status";
+type State = SpaceState;
 const money = (cents: number) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -86,14 +51,6 @@ const fullDate = (date: string) =>
     day: "numeric",
     year: "numeric",
   });
-const steps = [
-  "Your starting point",
-  "Shared expenses",
-  "Find your balance",
-  "Your agreement",
-  "Monthly check-in",
-];
-const stepIcons = [Leaf, House, Wallet, CheckCheck, CalendarDays];
 function download(name: string, contents: string, mime = "text/plain") {
   const url = URL.createObjectURL(new Blob([contents], { type: mime }));
   const a = document.createElement("a");
@@ -103,314 +60,77 @@ function download(name: string, contents: string, mime = "text/plain") {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function PlanApp({ id }: { id: string }) {
-  const [access, setAccess] = useState(""),
-    [invitation, setInvitation] = useState(""),
-    [state, setState] = useState<State | null>(null);
-  const [step, setStep] = useState(0),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [toast, setToast] = useState("");
-  const [inviteLink, setInviteLink] = useState(""),
-    [copyFallback, setCopyFallback] = useState(""),
-    [booted, setBooted] = useState(false);
-  const [guideBusy, setGuideBusy] = useState(false);
-  const initialized = useRef(false);
-  // A new fragment can change the private role or open an invitation in this same tab.
+function savedComparison(state: State) {
+  const draft = readDraft<{
+    version: number;
+    method: Plan["method"];
+    custom: string;
+  }>("fm:split-draft:" + state.id + ":" + state.role);
+  return draft &&
+    draft.version === state.planVersion &&
+    ["equal", "proportional", "custom"].includes(draft.method) &&
+    typeof draft.custom === "string"
+    ? draft
+    : null;
+}
+export default function PlanApp({
+  state,
+  busy,
+  section,
+  onSection,
+  onMutate,
+  onGuide,
+  onInvite,
+  onSpending,
+  onError,
+}: {
+  state: State;
+  busy: boolean;
+  section: number | null;
+  onSection: (step: number) => void;
+  onMutate: (
+    action: string,
+    payload?: Record<string, unknown>,
+  ) => Promise<State | null>;
+  onGuide: (plan: Plan) => Promise<unknown>;
+  onInvite: () => Promise<void>;
+  onSpending: () => void;
+  onError: (message: string) => void;
+}) {
+  const agreed =
+    state.decisions.A === "accepted" && state.decisions.B === "accepted";
+  const step =
+    section ?? (agreed ? 3 : state.bothShared || state.estimate ? 2 : 0);
+  const [editingProfile, setEditingProfile] = useState(false),
+    [editingCosts, setEditingCosts] = useState(false),
+    [guideBusy, setGuideBusy] = useState(false);
+  const previousStep = useRef(step);
+  const [, refreshComparison] = useState(0);
+  const comparison = savedComparison(state);
+  const unsavedComparison =
+    !!comparison &&
+    (comparison.method !== state.plan.method ||
+      (comparison.method === "custom" &&
+        Number(comparison.custom) * 100 !== state.plan.customA));
   useEffect(() => {
-    const changeAccess = () => location.reload();
-    window.addEventListener("hashchange", changeAccess);
-    return () => window.removeEventListener("hashchange", changeAccess);
-  }, []);
-  useEffect(() => {
-    const params = new URLSearchParams(location.hash.slice(1)),
-      key =
-        params.get("key") ||
-        (() => {
-          try {
-            return sessionStorage.getItem("fm:key:" + id);
-          } catch {
-            return null;
-          }
-        })() ||
-        "";
-    const invite = params.get("invite") || "";
-    if (invite && !params.get("key")) {
-      setInvitation(invite);
-      setBooted(true);
-      return;
+    if (previousStep.current !== step) {
+      setEditingProfile(false);
+      setEditingCosts(false);
+      previousStep.current = step;
     }
-    if (key) {
-      setAccess(key);
-      try {
-        sessionStorage.setItem("fm:key:" + id, key);
-        localStorage.setItem("fm:recent", "/space/" + id + "#key=" + key);
-      } catch {
-        /* The URL still contains the access token. */
-      }
-    }
-    setBooted(true);
-    const savedInvite = (() => {
-      try {
-        return localStorage.getItem("fm:invite:" + id);
-      } catch {
-        return null;
-      }
-    })();
-    if (savedInvite)
-      setInviteLink(location.origin + "/plan/" + id + "#invite=" + savedInvite);
-  }, [id]);
-  const refresh = useCallback(async () => {
-    if (!access) return;
-    const response = await fetch("/api/rooms/" + id, {
-      headers: { Authorization: "Bearer " + access },
-    });
-    const data = (await response.json()) as State & {
-      error?: string;
-      token: string;
-      invite?: string;
-    };
-    if (!response.ok) throw new Error(data.error);
-    setState(data);
-    if (!initialized.current) {
-      initialized.current = true;
-      const savedStep = readDraft<number>("fm:step:" + id + ":" + data.role);
-      const agreed =
-        data.decisions.A === "accepted" && data.decisions.B === "accepted";
-      setStep(
-        savedStep !== null &&
-          Number.isInteger(savedStep) &&
-          savedStep >= 0 &&
-          savedStep <= 4
-          ? savedStep
-          : agreed
-            ? 3
-            : data.estimate || data.bothShared
-              ? 2
-              : data.self.submitted
-                ? 1
-                : 0,
-      );
-    }
-    return data as State;
-  }, [access, id]);
-  useEffect(() => {
-    if (!access) return;
-    refresh().catch((error) => setError(error.message));
-    const interval = setInterval(() => {
-      if (!document.hidden) refresh().catch(() => {});
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [refresh, access]);
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(""), 3500);
-    return () => clearTimeout(timer);
-  }, [toast]);
-  useEffect(() => {
-    if (state && initialized.current)
-      writeDraft("fm:step:" + id + ":" + state.role, step);
-  }, [step, state?.role, id]);
-  async function mutate(action: string, payload: Record<string, unknown> = {}) {
-    if (!state) return;
-    setBusy(true);
-    setError("");
-    try {
-      const send = (revision: number) =>
-        fetch("/api/rooms/" + id, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + access,
-          },
-          body: JSON.stringify({ action, revision, ...payload }),
-        });
-      let response = await send(state.revision);
-      let data = (await response.json()) as State & {
-        error?: string;
-        token: string;
-        invite?: string;
-      };
-      if (response.status === 409) {
-        const latest = await refresh();
-        const independentChange =
-          latest &&
-          ((action === "profile" &&
-            JSON.stringify(latest.self) === JSON.stringify(state.self)) ||
-            (action === "expenses" &&
-              JSON.stringify(latest.expenses) ===
-                JSON.stringify(state.expenses)) ||
-            (["plan", "decision"].includes(action) &&
-              latest.planVersion === state.planVersion) ||
-            action === "checkin" ||
-            (action === "estimate" &&
-              JSON.stringify(latest.estimate) ===
-                JSON.stringify(state.estimate)));
-        if (independentChange) {
-          response = await send(latest.revision);
-          data = (await response.json()) as typeof data;
-        }
-      }
-      if (!response.ok) throw new Error(data.error);
-      if (data.revision) setState(data);
-      else await refresh();
-      setToast("Saved to your shared space");
-      return data;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Please try again.");
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function copy(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setToast("Link copied");
-    } catch {
-      setCopyFallback(text);
-    }
-  }
-  async function invite(share = false) {
-    if (!state) return;
-    let current = state;
-    if (share && !current.self.shared) {
-      const saved = await mutate("profile", {
-        profile: { ...current.self, shared: true },
-      });
-      if (!saved) return;
-      current = saved;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      let link = inviteLink;
-      if (!link) {
-        const response = await fetch("/api/rooms/" + id, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + access,
-          },
-          body: JSON.stringify({
-            action: "invite",
-            revision: current.revision,
-          }),
-        });
-        const result = (await response.json()) as {
-          invite?: string;
-          error?: string;
-        };
-        if (!response.ok || !result.invite)
-          throw new Error(
-            result.error || "Please try copying the invitation again.",
-          );
-        link = location.origin + "/plan/" + id + "#invite=" + result.invite;
-        try {
-          localStorage.setItem("fm:invite:" + id, result.invite);
-        } catch {
-          /* Link is also held in the current page. */
-        }
-        setInviteLink(link);
-        await refresh();
-      }
-      await copy(link);
-    } catch (error) {
-      setError((error as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  function switchDemo() {
-    const tokens = JSON.parse(localStorage.getItem("fm:demo:" + id) || "{}");
-    const key = tokens[state?.role === "A" ? "B" : "A"];
-    if (!key) {
-      setError(
-        "Open this sample in the browser where you created it to switch roles.",
-      );
-      return;
-    }
-    history.replaceState({}, "", "/plan/" + id + "#key=" + key);
-    location.reload();
-  }
-  async function guide(plan: Plan) {
-    setGuideBusy(true);
-    setError("");
-    try {
-      let current = state;
-      if (!current) return;
-      if (
-        plan.method !== current.plan.method ||
-        (plan.method === "custom" && plan.customA !== current.plan.customA)
-      ) {
-        const saved = await mutate("plan", { plan });
-        if (!saved) return;
-        current = saved;
-      }
-      const response = await fetch("/api/rooms/" + id + "/guide", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + access,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ revision: current.revision }),
-      });
-      const data = (await response.json()) as State & {
-        error?: string;
-        token: string;
-        invite?: string;
-      };
-      if (!response.ok)
-        throw new Error(
-          data.error || "The conversation guide is unavailable right now.",
-        );
-      await refresh();
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "The conversation guide is unavailable right now.",
-      );
-    } finally {
-      setGuideBusy(false);
-    }
-  }
-  if (invitation) return <InvitationEntry id={id} invitation={invitation} />;
-  if (!state)
-    return (
-      <div className="join-page">
-        <Brand />
-        <div className="join-card">
-          <span className="section-icon">
-            <House size={26} />
-          </span>
-          <h2>
-            {error
-              ? "Let’s find your plan."
-              : booted && !access
-                ? "Your personal link, please."
-                : "Making a little room…"}
-          </h2>
-          <p>
-            {error ||
-              (booted && !access
-                ? "Open the personal link you saved, or ask your partner for your invitation."
-                : "Opening your shared space.")}
-          </p>
-          <a className="button secondary" href="/">
-            Back to First Month <ArrowRight size={16} />
-          </a>
-        </div>
-      </div>
-    );
+  }, [step]);
   const a = state.role === "A" ? state.self : state.partner,
     b = state.role === "B" ? state.self : state.partner;
   const total = state.expenses.reduce((sum, item) => sum + item.amount, 0);
-  const agreed =
-    state.decisions.A === "accepted" && state.decisions.B === "accepted";
-  const savedPlan = () => {
-    const result = state.calculation;
-    return [
+  const share = () =>
+    onMutate("profile", { profile: { ...state.self, shared: true } });
+  const editProfile = () => {
+    previousStep.current = 0;
+    onSection(0);
+    setEditingProfile(true);
+  };
+  const savedPlan = () =>
+    [
       "FIRST MONTH — " + a.name + " & " + b.name,
       "Version " +
         state.planVersion +
@@ -422,18 +142,15 @@ export default function PlanApp({ id }: { id: string }) {
       "Total: " + money(total),
       "",
       "CONTRIBUTIONS",
-      a.name + ": " + money(result?.contributionsCents[0] || 0),
-      b.name + ": " + money(result?.contributionsCents[1] || 0),
-      "Remaining for " +
-        a.name +
-        ": " +
-        money(result?.remainingCents[0] || 0) +
-        (a.refined === false ? " (personal bills not included)" : ""),
-      "Remaining for " +
-        b.name +
-        ": " +
-        money(result?.remainingCents[1] || 0) +
-        (b.refined === false ? " (personal bills not included)" : ""),
+      ...[a, b].map(
+        (person, i) =>
+          person.name +
+          ": " +
+          money(state.calculation?.contributionsCents[i] || 0) +
+          " · Remaining: " +
+          money(state.calculation?.remainingCents[i] || 0) +
+          (person.refined === false ? " (personal bills not included)" : ""),
+      ),
       "Method: " + state.plan.method,
       "Bill payer: " + (state.plan.payer === "A" ? a.name : b.name),
       "Transfer day: " + state.plan.payday + " of each month",
@@ -442,262 +159,232 @@ export default function PlanApp({ id }: { id: string }) {
       "",
       state.plan.notes,
       "",
-      "Personal commitments and personal spending remain separate. Any changes need both people to review again.",
+      "Any changes need both people to review again.",
     ].join("\n");
-  };
+  const sharing = (
+    <SharingStatus
+      state={state}
+      busy={busy}
+      onShare={share}
+      onInvite={onInvite}
+      onEdit={step === 0 ? undefined : editProfile}
+    />
+  );
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <Brand />
-        <div className="space-label">YOUR SHARED SPACE</div>
-        <div className="couple-label">
-          <span className="avatar-stack">
-            <i>{a.name?.[0]}</i>
-            <i>{b.name?.[0]}</i>
-          </span>
-          <div>
-            <strong>
-              {a.name} & {b.name}
-            </strong>
-            <span>{state.demo ? "Sample couple" : "Our next chapter"}</span>
-          </div>
-        </div>
-        <nav className="step-nav" aria-label="Plan steps">
-          {steps.map((name, index) => {
-            const Icon = stepIcons[index];
-            return (
-              <button
-                key={name}
-                aria-current={step === index ? "step" : undefined}
-                onClick={() => {
-                  setStep(index);
-                  setError("");
-                }}
-                className={step === index ? "active" : ""}
-              >
-                <Icon size={18} />
-                <span>{name}</span>
-                <small>
-                  {(index === 0 && state.self.submitted) ||
-                  (index === 3 && agreed) ? (
-                    <Check size={14} />
-                  ) : (
-                    "0" + (index + 1)
-                  )}
-                </small>
-              </button>
-            );
-          })}
-        </nav>
-        <div className="mobile-navigation">
-          <label htmlFor="mobile-step">STEP {step + 1} OF 5</label>
-          <div>
-            <select
-              id="mobile-step"
-              aria-label="Go to a plan step"
-              value={step}
-              onChange={(event) => {
-                setStep(Number(event.target.value));
-                setError("");
-              }}
-            >
-              {steps.map((name, index) => (
-                <option key={name} value={index}>
-                  {index + 1}. {name}
-                </option>
-              ))}
-            </select>
-            <button
-              className="icon-button"
-              aria-label="Copy my personal access link"
-              onClick={() =>
-                copy(location.origin + "/plan/" + id + "#key=" + access)
-              }
-            >
-              <Copy size={18} />
-            </button>
-          </div>
-          <div className="mobile-progress" aria-hidden="true">
-            {steps.map((name, index) => (
-              <span
-                key={name}
-                className={
-                  index === step ? "current" : index < step ? "past" : ""
-                }
-              />
-            ))}
-          </div>
-        </div>
-        <div className="sidebar-bottom">
-          <span className="little-flower">✳</span>
+    <div className="budget-workspace">
+      <div className="life-heading budget-heading">
+        <div>
+          <p className="eyebrow">PLAN AHEAD</p>
+          <h1>Our monthly budget.</h1>
           <p>
-            You don’t have to figure
-            <br />
-            it all out at once.
-          </p>
-          <button
-            className="text-button small-text"
-            onClick={() =>
-              copy(location.origin + "/plan/" + id + "#key=" + access)
-            }
-          >
-            <Copy size={14} /> Save my access link
-          </button>
-          <p className="fine-print">
-            Anyone with your personal link can access your role. Keep it
-            private.
+            Decide what you each plan to contribute. Record actual payments in{" "}
+            <button className="text-button" onClick={onSpending}>
+              Spending <ArrowRight size={14} />
+            </button>
+            .
           </p>
         </div>
-      </aside>
-      <div className="app-body">
-        <header className="app-header">
-          <span className="breadcrumb">
-            <a className="text-button" href={"/space/" + id + "#key=" + access}>
-              <House size={15} /> Our home
-            </a>{" "}
-            <span>/</span> {steps[step]}
-          </span>
-          <div className="header-actions">
-            <span className="status-dot" />{" "}
-            <span>
-              {state.demo
-                ? "Demo space"
-                : agreed
-                  ? "Agreed together"
-                  : state.joined
-                    ? "Both here"
-                    : "Waiting for partner"}
-            </span>
-            <span className="avatar single">{state.self.name[0]}</span>
-          </div>
-        </header>
-        {state.demo && (
-          <div className="demo-banner">
-            <span>
-              <Sparkles size={15} /> Sample couple · all numbers are fictional ·
-              you’re viewing {state.self.name}
-            </span>
-            <button onClick={switchDemo}>
-              Switch to {state.partner.name}
-              <ArrowUpRight size={14} />
-            </button>
-          </div>
-        )}
-        <main className="workspace">
-          {error && (
-            <div className="alert error" role="alert">
-              <span>{error}</span>
-              <button aria-label="Dismiss error" onClick={() => setError("")}>
-                <X size={17} />
-              </button>
-            </div>
-          )}
-          {copyFallback && (
-            <div className="alert">
-              <label>
-                Copy this link manually
-                <input
-                  value={copyFallback}
-                  readOnly
-                  onFocus={(e) => e.target.select()}
+        <span className={"status-tag " + (agreed ? "green" : "")}>
+          {agreed ? "Confirmed together" : "Draft · not yet confirmed together"}
+        </span>
+      </div>
+      <nav className="budget-sections" aria-label="Budget sections">
+        {sections.map((label, i) => (
+          <button
+            key={label}
+            aria-current={i === step ? "page" : undefined}
+            onClick={() => onSection(i)}
+          >
+            <span>{label}</span>
+            {((i === 0 && state.self.submitted) || (i === 3 && agreed)) && (
+              <Check size={14} />
+            )}
+          </button>
+        ))}
+      </nav>
+      <section className="budget-section" aria-label={sections[step]}>
+        {step === 0 && (
+          <>
+            {editingProfile || !state.self.submitted ? (
+              <>
+                <div className="budget-edit-heading">
+                  <h2>Edit your details</h2>
+                  {state.self.submitted && (
+                    <button
+                      className="text-button"
+                      onClick={() => setEditingProfile(false)}
+                    >
+                      Back to saved details
+                    </button>
+                  )}
+                </div>
+                <ProfileForm
+                  state={state}
+                  busy={busy}
+                  onError={onError}
+                  onSave={async (profile) => {
+                    const result = await onMutate("profile", { profile });
+                    if (result) {
+                      clearDraft(
+                        "fm:profile-draft:" + state.id + ":" + state.role,
+                      );
+                      setEditingProfile(false);
+                      onSection(
+                        (profile as Profile).shared && result.bothShared
+                          ? 2
+                          : 0,
+                      );
+                    }
+                  }}
                 />
-              </label>
-              <button
-                aria-label="Close link"
-                onClick={() => setCopyFallback("")}
-              >
-                <X size={18} />
-              </button>
-            </div>
-          )}
-          <div className="workspace-heading">
-            <div>
-              <p className="eyebrow">
-                CHAPTER 0{step + 1} <span> / </span>{" "}
-                {step === 0
-                  ? "A LITTLE SPACE FOR YOU"
-                  : step === 1
-                    ? "THE LIFE YOU SHARE"
-                    : step === 2
-                      ? "TWO PERSPECTIVES, ONE PLAN"
-                      : step === 3
-                        ? "MAKE IT YOURS"
-                        : "ROOM TO CHANGE"}
-              </p>
-              <h1>
-                {
-                  [
-                    "Start with your side.",
-                    "What makes a home?",
-                    "Find your balance.",
-                    "A plan for both of you.",
-                    "How’s it feeling?",
-                  ][step]
-                }
-              </h1>
-              <p className="workspace-intro">
-                {
-                  [
-                    "Add your income. Personal bills, saving preferences, and notes are optional.",
-                    "Put a number on your shared life. Keep personal expenses separate.",
-                    "There’s more than one way to share. See what each option leaves for both of you.",
-                    "The small details make a plan you can actually follow.",
-                    "Life changes. Your plan can, too. Make a little time to check in.",
-                  ][step]
-                }
-              </p>
-            </div>
-            <span className="chapter-number">0{step + 1}</span>
-          </div>
-          {!state.joined && state.role === "A" && !state.estimate && (
-            <div className="invite-strip">
-              <span className="section-icon small">
-                <Users size={18} />
-              </span>
-              <div>
-                <strong>Better with {state.partner.name}.</strong>
-                <p>You can get started while they add their side.</p>
-              </div>
-              <button
-                className="button secondary compact"
-                disabled={busy}
-                onClick={() => invite(false)}
-              >
-                <Copy size={15} /> Copy invitation
-              </button>
-            </div>
-          )}
-          {step === 0 && (
-            <ProfileForm
-              state={state}
-              busy={busy}
-              onSave={async (profile) => {
-                const result = await mutate("profile", { profile });
-                if (result) {
-                  clearDraft("fm:profile-draft:" + id + ":" + state.role);
-                  setStep(2);
-                }
-              }}
-              onError={setError}
-            />
-          )}
-          {step === 1 && (
-            <ExpensesForm
-              state={state}
-              busy={busy}
-              onSave={async (expenses) => {
-                const result = await mutate("expenses", { expenses });
-                if (result) {
-                  clearDraft("fm:expenses-draft:" + id + ":" + state.role);
-                  setStep(2);
-                }
-              }}
-              onError={setError}
-            />
-          )}
-          {step === 2 && state.estimate && (
+              </>
+            ) : (
+              <>
+                <div className="budget-saved-profile surface">
+                  <div className="budget-saved-heading">
+                    <div>
+                      <p className="eyebrow">YOUR SAVED DETAILS</p>
+                      <h2>{state.self.name}</h2>
+                    </div>
+                    <button
+                      className="button secondary"
+                      onClick={() => setEditingProfile(true)}
+                    >
+                      Edit my details
+                    </button>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Monthly take-home income</dt>
+                      <dd>
+                        <AnimatedMoney value={state.self.income} />
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Personal monthly bills</dt>
+                      <dd>
+                        {state.self.refined === false
+                          ? "Not added"
+                          : money(state.self.personal)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Money you want to keep</dt>
+                      <dd>
+                        {state.self.refined === false
+                          ? "Not added"
+                          : money(state.self.reserve)}
+                      </dd>
+                    </div>
+                  </dl>
+                  {(state.self.priority || state.self.concern) && (
+                    <details className="budget-own-notes">
+                      <summary>My saved priority & note</summary>
+                      <p>{state.self.priority}</p>
+                      <p>{state.self.concern}</p>
+                    </details>
+                  )}
+                  <p className="budget-save-state">
+                    <Check size={15} />
+                    These details are saved. Edit only if something has changed.
+                  </p>
+                </div>
+                {!state.bothShared ? (
+                  sharing
+                ) : (
+                  <div className="budget-saved-next">
+                    <p>
+                      You’ve both shared your details. Review how the costs are
+                      divided.
+                    </p>
+                    <button
+                      className="button primary"
+                      onClick={() => onSection(2)}
+                    >
+                      Compare our split <ArrowRight size={16} />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+        {step === 1 && (
+          <>
+            {editingCosts ? (
+              <>
+                <div className="budget-edit-heading">
+                  <h2>Edit planned costs</h2>
+                  <button
+                    className="text-button"
+                    onClick={() => setEditingCosts(false)}
+                  >
+                    Back to saved costs
+                  </button>
+                </div>
+                <ExpensesForm
+                  state={state}
+                  busy={busy}
+                  onError={onError}
+                  onSave={async (expenses) => {
+                    const result = await onMutate("expenses", { expenses });
+                    if (result) {
+                      clearDraft(
+                        "fm:expenses-draft:" + state.id + ":" + state.role,
+                      );
+                      setEditingCosts(false);
+                      onSection(2);
+                    }
+                  }}
+                />
+              </>
+            ) : (
+              <section className="surface budget-costs-summary">
+                <div className="budget-saved-heading">
+                  <div>
+                    <p className="eyebrow">PLANNED EACH MONTH</p>
+                    <h2>Your shared costs</h2>
+                  </div>
+                  <button
+                    className="button secondary"
+                    onClick={() => setEditingCosts(true)}
+                  >
+                    Edit costs
+                  </button>
+                </div>
+                <dl>
+                  {state.expenses.map((item) => (
+                    <div key={item.id}>
+                      <dt>{item.label}</dt>
+                      <dd>{money(item.amount)}</dd>
+                    </div>
+                  ))}
+                  <div className="budget-cost-total">
+                    <dt>Total planned</dt>
+                    <dd>
+                      <AnimatedMoney value={total} />
+                    </dd>
+                  </div>
+                </dl>
+                <p>
+                  These are estimates for your budget. They do not record a
+                  payment.
+                </p>
+                <button className="button primary" onClick={() => onSection(2)}>
+                  Compare our split <ArrowRight size={16} />
+                </button>
+              </section>
+            )}
+          </>
+        )}
+        {step >= 2 && !state.bothShared && sharing}
+        {step === 2 && state.estimate && (
+          <details className="budget-estimate" open>
+            <summary>
+              Your private starting comparison{" "}
+              <span>Uses your partner-income estimate</span>
+            </summary>
             <SavedPreview
-              key={state.estimate.partnerIncome}
               income={state.self.income}
               total={total}
               names={[state.self.name, state.partner.name]}
@@ -705,136 +392,125 @@ export default function PlanApp({ id }: { id: string }) {
               busy={busy}
               joined={state.joined}
               shared={state.self.shared}
-              onSave={(estimate) => mutate("estimate", { estimate })}
-              onInvite={() => invite(true)}
-              onProfile={() => setStep(0)}
-              onExpenses={() => setStep(1)}
-              onError={setError}
+              showInvitation={false}
+              onSave={(estimate) => onMutate("estimate", { estimate })}
+              onInvite={onInvite}
+              onProfile={editProfile}
+              onExpenses={() => {
+                previousStep.current = 1;
+                onSection(1);
+                setEditingCosts(true);
+              }}
+              onError={onError}
             />
-          )}
-          {step >= 2 &&
-            !state.bothShared &&
-            !(step === 2 && state.estimate) && (
-              <div className="waiting-card">
-                <span className="section-icon">
-                  <LockKeyhole size={28} />
-                </span>
-                <h2>A little space before you share.</h2>
-                <p>
-                  Both of you need to choose to share your answers before your
-                  numbers appear side by side.
-                </p>
-                <div className="waiting-people">
-                  {[a, b].map((person, index) => (
-                    <div key={index}>
-                      <span className={"avatar " + (index ? "peach" : "")}>
-                        {person.name?.[0]}
-                      </span>
-                      <strong>{person.name}</strong>
-                      <span className="pill">
-                        {person.shared ? "Ready to share" : "Taking a moment"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <button className="button secondary" onClick={() => setStep(0)}>
-                  Review my answers <ArrowRight size={16} />
+          </details>
+        )}
+        {step === 2 && state.bothShared && (
+          <Balance
+            key={state.planVersion}
+            state={state}
+            busy={busy}
+            guideBusy={guideBusy}
+            onGuide={async (plan) => {
+              setGuideBusy(true);
+              try {
+                await onGuide(plan);
+              } finally {
+                setGuideBusy(false);
+              }
+            }}
+            onRefine={editProfile}
+            onSave={async (plan) => {
+              if (await onMutate("plan", { plan })) {
+                clearDraft("fm:split-draft:" + state.id + ":" + state.role);
+                onSection(3);
+              }
+            }}
+            onError={onError}
+          />
+        )}
+        {step === 3 && state.bothShared && unsavedComparison && (
+          <section className="surface comparison-unsaved">
+            <p className="eyebrow">YOUR COMPARISON IS STILL A DRAFT</p>
+            <h2>You tried a different split.</h2>
+            <p>
+              That choice is saved in this browser. Use it from Compare splits
+              before confirming, or keep the split already saved to your shared
+              budget.
+            </p>
+            <div>
+              <button className="button primary" onClick={() => onSection(2)}>
+                Return to my comparison <ArrowRight size={16} />
+              </button>
+              <button
+                className="text-button"
+                onClick={() => {
+                  clearDraft("fm:split-draft:" + state.id + ":" + state.role);
+                  refreshComparison((n) => n + 1);
+                }}
+              >
+                Keep the saved split
+              </button>
+            </div>
+          </section>
+        )}
+        {step === 3 && state.bothShared && !unsavedComparison && (
+          <>
+            <Agreement
+              key={state.planVersion}
+              state={state}
+              busy={busy}
+              onSave={(plan) => onMutate("plan", { plan })}
+              onDecision={(decision) =>
+                onMutate("decision", {
+                  decision,
+                  planVersion: state.planVersion,
+                })
+              }
+              onError={onError}
+            />
+            <div className="page-actions agreement-actions">
+              <div className="download-actions">
+                <button className="text-button" onClick={() => window.print()}>
+                  <Printer size={17} />
+                  Print / save PDF
+                </button>
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    if (state.calculation)
+                      download("our-first-month.txt", savedPlan());
+                    else onError("Choose a valid contribution method first.");
+                  }}
+                >
+                  <Download size={17} />
+                  Download {agreed ? "our plan" : "draft"}
                 </button>
               </div>
+              {agreed && (
+                <button className="button primary" onClick={onSpending}>
+                  Track shared spending <ArrowRight size={17} />
+                </button>
+              )}
+            </div>
+            {state.checkins.length > 0 && (
+              <details className="budget-previous-notes">
+                <summary>
+                  Earlier monthly notes ({state.checkins.length})
+                </summary>
+                {state.checkins.map((item) => (
+                  <article key={item.id}>
+                    <strong>
+                      {fullDate(item.date)} · {money(item.amount)}
+                    </strong>
+                    <p>{item.note}</p>
+                  </article>
+                ))}
+              </details>
             )}
-          {step === 2 && state.bothShared && (
-            <Balance
-              state={state}
-              busy={busy}
-              guideBusy={guideBusy}
-              onGuide={guide}
-              onRefine={() => setStep(0)}
-              onSave={async (plan) => {
-                const result = await mutate("plan", { plan });
-                if (result) setStep(3);
-              }}
-              onError={setError}
-            />
-          )}
-          {step === 3 && state.bothShared && (
-            <>
-              <Agreement
-                key={state.planVersion}
-                state={state}
-                busy={busy}
-                onSave={(plan) => mutate("plan", { plan })}
-                onDecision={(decision) =>
-                  mutate("decision", {
-                    decision,
-                    planVersion: state.planVersion,
-                  })
-                }
-                onError={setError}
-              />
-              <div className="page-actions agreement-actions">
-                <div className="download-actions">
-                  <button
-                    className="text-button"
-                    onClick={() => window.print()}
-                  >
-                    <Printer size={17} /> Print / save PDF
-                  </button>
-                  <button
-                    className="text-button"
-                    onClick={() => {
-                      if (state.calculation)
-                        download("our-first-month.txt", savedPlan());
-                      else
-                        setError("Choose a valid contribution method first.");
-                    }}
-                  >
-                    <Download size={16} /> Download{" "}
-                    {agreed ? "our plan" : "draft"}
-                  </button>
-                </div>
-                <button className="button primary" onClick={() => setStep(4)}>
-                  Our monthly check-in <ArrowRight size={17} />
-                </button>
-              </div>
-            </>
-          )}
-          {step === 4 && state.bothShared && (
-            <Checkin
-              state={state}
-              busy={busy}
-              onSave={(checkin) => mutate("checkin", { checkin })}
-              onError={setError}
-            />
-          )}
-          <footer className="workspace-footer">
-            <Feedback
-              id={id}
-              accessKey={access}
-              role={state.role}
-              screen="plan"
-            />
-            <span>
-              <LockKeyhole size={13} /> Your space. Your pace.
-            </span>
-            <button
-              className="text-button small-text"
-              onClick={() => {
-                refresh()
-                  .then(() => setToast("You’re up to date"))
-                  .catch((error) => setError(error.message));
-              }}
-            >
-              <RefreshCw size={13} /> Refresh partner’s changes
-            </button>
-          </footer>
-        </main>
-      </div>
-      {toast && (
-        <div className="toast" role="status">
-          <Check size={16} />
-          {toast}
-        </div>
-      )}
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -920,6 +596,12 @@ function ProfileForm({
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (base.current !== JSON.stringify(state.self)) {
+      onError(
+        "Your saved details changed while you were editing. Your draft is still here. Go back to saved details to review the latest version before saving.",
+      );
+      return;
+    }
     const share =
       (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") !==
       "private";
@@ -1057,7 +739,11 @@ function ProfileForm({
             value="share"
             disabled={busy}
           >
-            {busy ? "Saving…" : "Share & compare"}
+            {busy
+              ? "Saving…"
+              : state.self.shared
+                ? "Save changes"
+                : "Save & share details"}
             <ArrowRight size={17} />
           </button>
           <button
@@ -1066,7 +752,7 @@ function ProfileForm({
             value="private"
             disabled={busy}
           >
-            Save privately
+            {state.self.shared ? "Save and make private" : "Save privately"}
           </button>
         </div>
         <p className="fine-print">
@@ -1075,30 +761,6 @@ function ProfileForm({
             : "Browser storage is unavailable. Save before leaving this page."}
         </p>
       </form>
-      <aside className="personal-preview profile-reassurance">
-        <span className="little-flower">✳</span>
-        <h3>
-          Your answer
-          <br />
-          is yours to give.
-        </h3>
-        <p>
-          Your partner’s estimate never becomes your answer. Add the amount you
-          feel comfortable planning around.
-        </p>
-        <div className="preview-note">
-          <Check size={17} />
-          <p>Only your own answers can be saved from this link.</p>
-        </div>
-        <div className="preview-note">
-          <Check size={17} />
-          <p>You can come back and refine your personal costs later.</p>
-        </div>
-        <div className="preview-note">
-          <Check size={17} />
-          <p>Sharing your numbers doesn’t mean agreeing to a split.</p>
-        </div>
-      </aside>
     </div>
   );
 }
@@ -1268,14 +930,28 @@ function Balance({
   const a = (state.role === "A" ? state.self : state.partner) as Profile,
     b = (state.role === "B" ? state.self : state.partner) as Profile;
   const total = state.expenses.reduce((sum, row) => sum + row.amount, 0);
-  const [method, setMethod] = useState(state.plan.method),
+  const stored = useRef(savedComparison(state)).current;
+  const [method, setMethod] = useState<Plan["method"]>(
+      stored?.method || state.plan.method,
+    ),
     [custom, setCustom] = useState(
-      dollars(
-        state.plan.method === "custom"
-          ? state.plan.customA
-          : Math.round(total / 2),
-      ),
+      stored?.custom ??
+        dollars(
+          state.plan.method === "custom"
+            ? state.plan.customA
+            : Math.round(total / 2),
+        ),
     );
+  const [draftSaved, setDraftSaved] = useState(true);
+  useEffect(() => {
+    setDraftSaved(
+      writeDraft("fm:split-draft:" + state.id + ":" + state.role, {
+        version: state.planVersion,
+        method,
+        custom,
+      }),
+    );
+  }, [method, custom, state.planVersion, state.id, state.role]);
   const calc = (choice: Plan["method"]) =>
     calculateBudget({
       sharedCents: total,
@@ -1415,6 +1091,38 @@ function Balance({
           </div>
         </div>
       )}
+      <div className="page-actions balance-actions">
+        <span className="small-text muted">
+          {changed
+            ? "Exploring a new split · not saved to your shared budget yet"
+            : state.decisions.A === "accepted" &&
+                state.decisions.B === "accepted"
+              ? "This is the split you both confirmed."
+              : "This matches the saved budget. Review it together."}
+          {!draftSaved &&
+            " · Keep this page open; browser drafts are unavailable."}
+        </span>
+        <button
+          className="button primary"
+          disabled={busy || guideBusy || !selected}
+          onClick={() => {
+            try {
+              onSave(draft());
+            } catch (error) {
+              onError((error as Error).message);
+            }
+          }}
+        >
+          {busy
+            ? "Saving…"
+            : !changed &&
+                state.decisions.A === "accepted" &&
+                state.decisions.B === "accepted"
+              ? "View confirmed plan"
+              : "Use this split"}
+          <ArrowRight size={17} />
+        </button>
+      </div>
       {problem && (
         <div className="alert error" role="alert">
           {problem}
@@ -1472,24 +1180,27 @@ function Balance({
                         (change > 0 ? " more" : " less") +
                         " than an equal split"}
                   </p>
-                  <dl className="result-breakdown">
-                    <div>
-                      <dt>Take-home income</dt>
-                      <dd>{money(person.income)}</dd>
-                    </div>
-                    <div>
-                      <dt>Personal bills</dt>
-                      <dd>
-                        {person.refined === false
-                          ? "Not added"
-                          : "− " + money(person.personal)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Shared contribution</dt>
-                      <dd>− {money(selected!.contributionsCents[i])}</dd>
-                    </div>
-                  </dl>
+                  <details className="person-breakdown">
+                    <summary>View income & costs</summary>
+                    <dl className="result-breakdown">
+                      <div>
+                        <dt>Take-home income</dt>
+                        <dd>{money(person.income)}</dd>
+                      </div>
+                      <div>
+                        <dt>Personal bills</dt>
+                        <dd>
+                          {person.refined === false
+                            ? "Not added"
+                            : "− " + money(person.personal)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Shared contribution</dt>
+                        <dd>− {money(selected!.contributionsCents[i])}</dd>
+                      </div>
+                    </dl>
+                  </details>
                   <div
                     className={
                       "preference-result " +
@@ -1558,50 +1269,33 @@ function Balance({
           )}
         </section>
       )}
-      <div className="page-actions balance-actions">
-        <span className="small-text muted">
-          You’re exploring options. Both people still need to agree.
-        </span>
-        <button
-          className="button primary"
-          disabled={busy || guideBusy || !selected}
-          onClick={() => {
-            try {
-              onSave(draft());
-            } catch (error) {
-              onError((error as Error).message);
-            }
-          }}
-        >
-          {busy ? "Saving…" : "Build our agreement"}
-          <ArrowRight size={17} />
-        </button>
-      </div>
-      <details className="perspectives" open>
-        <summary>
-          Your priorities, side by side <Users size={17} />
-        </summary>
-        <div className="shared-priorities">
-          {[a, b].map((person, i) => (
-            <div key={i}>
-              <span className={"avatar " + (i ? "peach" : "")}>
-                {person.name[0]}
-              </span>
-              <div>
-                <span className="overline">{person.name}’S PRIORITY</span>
-                <strong>{person.priority || "No priority added yet"}</strong>
-                {person.concern && <p>“{person.concern}”</p>}
+      {[a, b].some((person) => person.priority || person.concern) && (
+        <details className="perspectives">
+          <summary>
+            Your priorities, side by side <Users size={17} />
+          </summary>
+          <div className="shared-priorities">
+            {[a, b].map((person, i) => (
+              <div key={i}>
+                <span className={"avatar " + (i ? "peach" : "")}>
+                  {person.name[0]}
+                </span>
+                <div>
+                  <span className="overline">{person.name}’S PRIORITY</span>
+                  <strong>{person.priority || "No priority added yet"}</strong>
+                  {person.concern && <p>“{person.concern}”</p>}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </details>
+            ))}
+          </div>
+        </details>
+      )}
       <section className="conversation-box">
         <div>
           <span className="overline">
             <Sparkles size={15} /> YOUR NEXT CONVERSATION
           </span>
-          <h3>A little help finding the words.</h3>
+          <h3>Need help discussing this split?</h3>
           <p>
             Turn your shared priorities and this split into three questions and
             a starting sentence. Only the answers you both chose to share are
@@ -1933,157 +1627,6 @@ function Agreement({
           Saving a change creates a new version for both of you to review.
         </p>
       </form>
-    </div>
-  );
-}
-function Checkin({
-  state,
-  busy,
-  onSave,
-  onError,
-}: {
-  state: State;
-  busy: boolean;
-  onSave: (checkin: unknown) => Promise<unknown>;
-  onError: (message: string) => void;
-}) {
-  const total = state.expenses.reduce((sum, row) => sum + row.amount, 0);
-  function calendar() {
-    const day = state.plan.reviewDate.replaceAll("-", "");
-    download(
-      "first-month-check-in.ics",
-      [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//First Month//Check-in//EN",
-        "BEGIN:VEVENT",
-        "UID:" + state.id + "-" + day + "@firstmonth",
-        "DTSTAMP:" +
-          new Date()
-            .toISOString()
-            .replace(/[-:]/g, "")
-            .replace(/\.\d{3}/, ""),
-        "DTSTART;VALUE=DATE:" + day,
-        "SUMMARY:Our First Month check-in",
-        "DESCRIPTION:Review shared expenses and what needs to change together.",
-        "END:VEVENT",
-        "END:VCALENDAR",
-        "",
-      ].join("\r\n"),
-      "text/calendar",
-    );
-  }
-  return (
-    <div className="content-columns">
-      <div>
-        <section className="surface checkin-date">
-          <span className="section-icon">
-            <CalendarDays size={25} />
-          </span>
-          <div>
-            <p className="overline">OUR NEXT MOMENT TOGETHER</p>
-            <h2>{fullDate(state.plan.reviewDate)}</h2>
-            <p className="muted">
-              Set aside a little time to see what’s working.
-            </p>
-          </div>
-          <button className="text-button" onClick={calendar}>
-            <Plus size={16} /> Add to calendar
-          </button>
-        </section>
-        <form
-          className="surface checkin-form"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const form = event.currentTarget,
-              f = new FormData(form);
-            try {
-              const result = await onSave({
-                date: String(f.get("date")),
-                amount: parseMoney(f.get("amount")),
-                note: String(f.get("note")),
-              });
-              if (result) form.reset();
-            } catch (error) {
-              onError((error as Error).message);
-            }
-          }}
-        >
-          <h3>How did this month go?</h3>
-          <p className="muted small-text">
-            Your plan was <AnimatedMoney value={total} enter /> in shared
-            expenses.
-          </p>
-          <label>
-            Check-in date
-            <input
-              type="date"
-              name="date"
-              defaultValue={new Date().toISOString().slice(0, 10)}
-              required
-            />
-          </label>
-          <label>
-            What did you actually spend together?
-            <span className="money-input">
-              <span>$</span>
-              <input
-                name="amount"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder={dollars(total)}
-                required
-              />
-            </span>
-          </label>
-          <label>
-            What worked? What would you change?
-            <textarea
-              name="note"
-              rows={3}
-              maxLength={800}
-              placeholder="Maybe groceries cost more than expected, or your transfer routine worked really well."
-            />
-          </label>
-          <button className="button primary" disabled={busy}>
-            Save our check-in <Check size={16} />
-          </button>
-        </form>
-        {state.checkins.length > 0 && (
-          <section className="checkin-history">
-            <h3>Your moments so far</h3>
-            {[...state.checkins].reverse().map((entry) => (
-              <article className="surface" key={entry.id}>
-                <div>
-                  <strong>{fullDate(entry.date)}</strong>
-                  <span>{money(entry.amount)} spent together</span>
-                </div>
-                <p>{entry.note || "No note added."}</p>
-              </article>
-            ))}
-          </section>
-        )}
-      </div>
-      <aside className="side-note">
-        <span className="little-flower">✳</span>
-        <p className="overline">THREE GOOD QUESTIONS</p>
-        <h3>
-          A check-in,
-          <br />
-          not a scorecard.
-        </h3>
-        <ol>
-          <li>What felt easy this month?</li>
-          <li>Did anything catch us off guard?</li>
-          <li>What would make next month feel better?</li>
-        </ol>
-        <hr />
-        <p>
-          If an income, expense, or priority changes, go back to your plan.
-          You’ll both review the new version.
-        </p>
-      </aside>
     </div>
   );
 }

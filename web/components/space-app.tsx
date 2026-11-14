@@ -16,6 +16,9 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import PlanApp from "./plan-app";
+import { budgetLink, readNavigation, type SpaceTab } from "@/lib/navigation";
+import type { Plan } from "@/lib/room";
 import InvitationEntry from "./invitation-entry";
 import Feedback from "./feedback";
 import { Brand } from "./brand";
@@ -35,13 +38,15 @@ import {
   useSavedDraft,
 } from "./space/shared";
 
-type Tab = "home" | "months" | "decisions" | "reviews" | "settings";
+type Tab = SpaceTab;
 export default function SpaceApp({ id }: { id: string }) {
   const [key, setKey] = useState(""),
     [invitation, setInvitation] = useState(""),
     [ready, setReady] = useState(false),
     [state, setState] = useState<SpaceState | null>(null),
     [tab, setTab] = useState<Tab>("home"),
+    [budgetSection, setBudgetSection] = useState<number | null>(null),
+    [routeKey, setRouteKey] = useState(""),
     [selected, setSelected] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -65,10 +70,16 @@ export default function SpaceApp({ id }: { id: string }) {
       } catch {}
     setKey(access);
     setInvitation(hash.get("invite") || "");
-    const t = url.searchParams.get("tab");
-    if (t && ["home", "months", "decisions", "reviews", "settings"].includes(t))
-      setTab(t as Tab);
-    setSelected(url.searchParams.get("decision"));
+    const route = readNavigation(url);
+    setTab(route.tab);
+    setBudgetSection(route.section);
+    setSelected(route.decision);
+    setRouteKey(url.search);
+    if (url.pathname.startsWith("/plan/")) {
+      url.pathname = "/space/" + id;
+      url.searchParams.set("tab", "budget");
+      history.replaceState({}, "", url);
+    }
     setReady(true);
     if (access)
       try {
@@ -76,6 +87,19 @@ export default function SpaceApp({ id }: { id: string }) {
         localStorage.setItem("fm:recent", "/space/" + id + "#key=" + access);
       } catch {}
   }, [id]);
+  useEffect(() => {
+    const restore = () => {
+      const url = new URL(location.href),
+        route = readNavigation(url);
+      setTab(route.tab);
+      setBudgetSection(route.section);
+      setSelected(route.decision);
+      setRouteKey(url.search);
+      setError("");
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
   const refresh = useCallback(async () => {
     if (!key) return null;
     const n = ++requestNumber.current;
@@ -122,10 +146,12 @@ export default function SpaceApp({ id }: { id: string }) {
     entry?: "expense",
   ) {
     setTab(next);
+    setBudgetSection(null);
     setSelected(decision);
     setError("");
     const url = new URL(location.href);
     url.searchParams.set("tab", next);
+    url.searchParams.delete("section");
     for (const p of ["entry", "entryId", "category", "original"])
       url.searchParams.delete(p);
     if (next === "months")
@@ -137,7 +163,8 @@ export default function SpaceApp({ id }: { id: string }) {
     decision
       ? url.searchParams.set("decision", decision)
       : url.searchParams.delete("decision");
-    history.replaceState({}, "", url);
+    if (url.href !== location.href) history.pushState({}, "", url);
+    setRouteKey(url.search);
     window.scrollTo({ top: 0, behavior: "instant" });
   }
   async function request(path: string, payload: Record<string, unknown>) {
@@ -146,21 +173,44 @@ export default function SpaceApp({ id }: { id: string }) {
     setError("");
     requestNumber.current++;
     try {
-      const r = await fetch("/api/rooms/" + id + path, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + key,
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = (await r.json()) as SpaceState & {
+      const send = (data: Record<string, unknown>) =>
+        fetch("/api/rooms/" + id + path, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + key,
+          },
+          body: JSON.stringify(data),
+        });
+      let r = await send(payload);
+      let data = (await r.json()) as SpaceState & {
         error?: string;
         token: string;
         invite: string;
       };
+      let refreshed = false;
+      if (r.status === 409 && path === "" && state) {
+        const current = await refresh();
+        refreshed = true;
+        const independentChange =
+          current &&
+          ((payload.action === "profile" &&
+            JSON.stringify(current.self) === JSON.stringify(state.self)) ||
+            (payload.action === "expenses" &&
+              JSON.stringify(current.expenses) ===
+                JSON.stringify(state.expenses)) ||
+            (["plan", "decision"].includes(String(payload.action)) &&
+              current.planVersion === state.planVersion) ||
+            (payload.action === "estimate" &&
+              JSON.stringify(current.estimate) ===
+                JSON.stringify(state.estimate)));
+        if (independentChange && current) {
+          r = await send({ ...payload, revision: current.revision });
+          data = (await r.json()) as typeof data;
+        }
+      }
       if (!r.ok) {
-        if (r.status === 409) await refresh();
+        if (r.status === 409 && !refreshed) await refresh();
         throw new Error(data.error || "Your changes could not be saved.");
       }
       const latest = data.householdDecisions ? data : await refresh();
@@ -192,9 +242,42 @@ export default function SpaceApp({ id }: { id: string }) {
       roomRevision: state?.revision,
     });
   function planLink(step?: number) {
-    if (state && step !== undefined)
-      writeDraft("fm:step:" + id + ":" + state.role, step);
-    return "/plan/" + id + "#key=" + key;
+    return budgetLink(id, key, step);
+  }
+  function openBudget(section: number | null = null) {
+    setTab("budget");
+    setBudgetSection(section);
+    setSelected(null);
+    setError("");
+    const target = new URL(
+      budgetLink(id, key, section ?? undefined),
+      location.origin,
+    );
+    if (target.href !== location.href) history.pushState({}, "", target);
+    setRouteKey(target.search);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+  const shareProfile = () =>
+    request("", {
+      action: "profile",
+      revision: state?.revision,
+      profile: { ...state?.self, shared: true },
+    });
+  async function prepareBudgetGuide(plan: Plan) {
+    let current = state;
+    if (!current) return;
+    if (
+      plan.method !== current.plan.method ||
+      (plan.method === "custom" && plan.customA !== current.plan.customA)
+    ) {
+      current = await request("", {
+        action: "plan",
+        revision: current.revision,
+        plan,
+      });
+      if (!current) return;
+    }
+    return request("/guide", { revision: current.revision });
   }
   async function copy(value: string) {
     try {
@@ -292,11 +375,36 @@ export default function SpaceApp({ id }: { id: string }) {
     );
   const pair = names(state),
     nav = [
-      { id: "home", label: "Our home", icon: House },
-      { id: "months", label: "This month", icon: ReceiptText },
-      { id: "decisions", label: "Decisions", icon: ShoppingBag },
-      { id: "reviews", label: "Weekly check-in", icon: CalendarDays },
-      { id: "settings", label: "Our space", icon: Settings },
+      {
+        id: "home",
+        label: "Overview",
+        description: "Your next step",
+        icon: House,
+      },
+      {
+        id: "budget",
+        label: "Our budget",
+        description: "What we plan to pay",
+        icon: Wallet,
+      },
+      {
+        id: "months",
+        label: "Spending",
+        description: "What we actually paid",
+        icon: ReceiptText,
+      },
+      {
+        id: "decisions",
+        label: "Decisions",
+        description: "Purchases & goals",
+        icon: ShoppingBag,
+      },
+      {
+        id: "reviews",
+        label: "Check-in",
+        description: "How it’s going",
+        icon: CalendarDays,
+      },
     ] as const;
   return (
     <div className="life-shell">
@@ -315,7 +423,7 @@ export default function SpaceApp({ id }: { id: string }) {
           </small>
         </div>
         <nav aria-label="Household navigation">
-          {nav.map(({ id: next, label, icon: Icon }) => (
+          {nav.map(({ id: next, label, description, icon: Icon }) => (
             <button
               key={next}
               className={tab === next ? "active" : ""}
@@ -323,20 +431,28 @@ export default function SpaceApp({ id }: { id: string }) {
               onClick={() => navigate(next)}
             >
               <Icon size={19} />
-              <span>{label}</span>
+              <span>
+                {label}
+                <small>{description}</small>
+              </span>
               {next === "decisions" &&
                 state.householdDecisions.some((d) => d.status === "open") && (
                   <i className="nav-dot" />
                 )}
             </button>
           ))}
-          <a href={planLink()}>
-            <Wallet size={19} />
-            Monthly plan
-            <ArrowRight size={14} />
-          </a>
         </nav>
         <div className="life-sidebar-bottom">
+          <button
+            className={
+              "space-settings-link " + (tab === "settings" ? "active" : "")
+            }
+            aria-current={tab === "settings" ? "page" : undefined}
+            onClick={() => navigate("settings")}
+          >
+            <Settings size={18} />
+            Settings & access
+          </button>
           <p>
             Little conversations.
             <br />A life you build together.
@@ -352,15 +468,15 @@ export default function SpaceApp({ id }: { id: string }) {
           <span className="life-mobile-brand">
             <Brand />
           </span>
-          <p>
-            {tab === "home"
-              ? "A little clarity for your everyday."
+          <p className="space-location" aria-label="Current section">
+            {tab === "settings"
+              ? "Settings & access"
               : nav.find((n) => n.id === tab)?.label}
           </p>
           <div>
             <span className="life-save-indicator">
               <i />
-              {busy ? "Saving…" : "Saved to your space"}
+              {busy ? "Saving…" : "Your view: " + state.self.name}
             </span>
             <button
               className="icon-button"
@@ -370,6 +486,17 @@ export default function SpaceApp({ id }: { id: string }) {
               }
             >
               <Copy size={18} />
+            </button>
+            <button
+              className={
+                "icon-button settings-shortcut " +
+                (tab === "settings" ? "active" : "")
+              }
+              aria-label="Settings and access"
+              title="Settings and access"
+              onClick={() => navigate("settings")}
+            >
+              <Settings size={19} />
             </button>
             <span className="avatar">{state.self.name[0]}</span>
           </div>
@@ -398,7 +525,35 @@ export default function SpaceApp({ id }: { id: string }) {
             </button>
           </div>
         )}
-        <main className="life-main" key={tab + ":" + (selected || "")}>
+        <main
+          className={"life-main " + (tab === "budget" ? "has-budget" : "")}
+          key={
+            tab + ":" + (selected || "") + (tab === "months" ? routeKey : "")
+          }
+          onClick={(event) => {
+            const anchor = (event.target as HTMLElement).closest("a");
+            if (
+              !anchor ||
+              event.defaultPrevented ||
+              event.button !== 0 ||
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            )
+              return;
+            const url = new URL(anchor.href);
+            if (
+              url.origin === location.origin &&
+              url.pathname === "/space/" + id &&
+              url.hash === "#key=" + key &&
+              url.searchParams.get("tab") === "budget"
+            ) {
+              event.preventDefault();
+              openBudget(readNavigation(url).section);
+            }
+          }}
+        >
           {error && (
             <div className="alert error" role="alert">
               <span>{error}</span>
@@ -430,7 +585,7 @@ export default function SpaceApp({ id }: { id: string }) {
               </button>
             </div>
           )}
-          {!state.self.submitted ? (
+          {!state.self.submitted && (tab === "home" || tab === "budget") ? (
             <Welcome
               state={state}
               busy={busy}
@@ -452,17 +607,32 @@ export default function SpaceApp({ id }: { id: string }) {
                   onNavigate={navigate}
                   planLink={planLink}
                   onInvite={invite}
-                  onShare={() =>
-                    request("", {
-                      action: "profile",
-                      revision: state.revision,
-                      profile: { ...state.self, shared: true },
-                    })
-                  }
+                  onShare={shareProfile}
                 />
               )}{" "}
+              {tab === "budget" && (
+                <PlanApp
+                  state={state}
+                  busy={busy}
+                  section={budgetSection}
+                  onSection={openBudget}
+                  onMutate={(action, payload = {}) =>
+                    request("", {
+                      action,
+                      revision: state.revision,
+                      ...payload,
+                    })
+                  }
+                  onGuide={prepareBudgetGuide}
+                  onInvite={invite}
+                  onSpending={() => navigate("months")}
+                  onError={setError}
+                />
+              )}
               {tab === "months" && (
                 <MonthBook
+                  onShare={shareProfile}
+                  onInvite={invite}
                   state={state}
                   busy={busy}
                   act={(action, payload = {}) =>
@@ -525,7 +695,12 @@ export default function SpaceApp({ id }: { id: string }) {
               <RefreshCw size={13} />
               Refresh
             </button>
-            <Feedback id={id} accessKey={key} role={state.role} screen={tab} />
+            <Feedback
+              id={id}
+              accessKey={key}
+              role={state.role}
+              screen={tab === "budget" ? "plan" : tab}
+            />
             <a href="/privacy">Privacy</a>
             <a href="/terms">Terms</a>
           </div>

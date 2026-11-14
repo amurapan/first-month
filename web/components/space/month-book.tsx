@@ -1,4 +1,5 @@
 "use client";
+import SharingStatus from "./sharing-status";
 import { AnimatedMoney } from "@/components/motion";
 import { useEffect, useState } from "react";
 import {
@@ -42,6 +43,8 @@ type Props = {
   act: SpaceAction;
   onError: (s: string) => void;
   planLink: (step?: number) => string;
+  onShare: () => Promise<unknown>;
+  onInvite: () => Promise<void>;
 };
 type Editor = {
   kind: "expense" | "refund" | "transfer";
@@ -214,6 +217,8 @@ export default function MonthBook({
   act,
   onError,
   planLink,
+  onShare,
+  onInvite,
 }: Props) {
   const [period, setPeriod] = useState(() => {
     if (typeof location === "undefined") return currentMonth();
@@ -304,19 +309,24 @@ export default function MonthBook({
     act(action, { period, revision: month?.revision, ...data });
   if (!state.bothShared)
     return (
-      <section className="month-start">
-        <ReceiptText size={38} />
-        <p className="eyebrow">YOUR PLAN, MEETING REAL LIFE</p>
-        <h1>See how the month actually went.</h1>
-        <p>
-          Once you both share your numbers, record shared costs, compare them
-          with your plan, and work out any reimbursement together.
-        </p>
-        <a className="button primary" href={planLink(0)}>
-          Review my sharing
-          <ArrowRight size={18} />
-        </a>
-      </section>
+      <div className="spending-setup">
+        <div className="life-heading">
+          <p className="eyebrow">ACTUAL PAYMENTS</p>
+          <h1>Shared spending.</h1>
+          <p>
+            Record what was paid, who covered it, and any money to settle
+            between you.
+          </p>
+        </div>
+        <SharingStatus
+          state={state}
+          busy={busy}
+          onShare={onShare}
+          onInvite={onInvite}
+          editLink={planLink(0)}
+          context="spending"
+        />
+      </div>
     );
   const older = state.months.find(
     (m) =>
