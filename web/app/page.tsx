@@ -5,11 +5,13 @@ import {
   ArrowUpRight,
   Check,
   CheckCheck,
+  CalendarDays,
   ChevronDown,
   House,
   LockKeyhole,
   MessageCircle,
   Scale,
+  ShoppingBag,
   Wallet,
 } from "lucide-react";
 import { Brand } from "@/components/brand";
@@ -67,7 +69,7 @@ export default function Home() {
       } catch {
         /* The first role still works. */
       }
-      location.assign("/plan/" + data.id + "#key=" + data.token);
+      location.assign("/space/" + data.id + "#key=" + data.token);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -80,7 +82,9 @@ export default function Home() {
         <nav>
           <a href="#how">How it works</a>
           <a href="#questions">Questions</a>
-          {recent && <a href={recent}>Your saved plan</a>}
+          <a href={recent || "/spaces"}>
+            {recent ? "Our home" : "Open our space"}
+          </a>
           <a className="button secondary" href="/start">
             Find our split <ArrowUpRight size={16} />
           </a>
@@ -99,8 +103,8 @@ export default function Home() {
             <p className="hero-description">
               Different incomes. Shared bills. A little uncertainty.
               <br />
-              Find your starting split in two short steps, then make a plan you
-              both feel ready to agree to.
+              Find your starting split in two short steps. Then keep making the
+              everyday money decisions together.
             </p>
             <div className="hero-actions">
               <a href="/start" className="button primary large">
@@ -109,10 +113,16 @@ export default function Home() {
                   : "Find our starting split"}
                 <ArrowRight size={19} />
               </a>
-              <a href="#example" className="text-button">
-                Try the example <ChevronDown size={16} />
-              </a>
+              <button className="text-button" disabled={busy} onClick={demo}>
+                {busy ? "Opening sample…" : "Take a look inside"}
+                <ArrowUpRight size={16} />
+              </button>
             </div>
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
             <div className="hero-assurances">
               <span>
                 <Check size={15} /> No account
@@ -126,7 +136,7 @@ export default function Home() {
             </div>
             {recent && (
               <a className="return-link" href={recent}>
-                Already started? Open your saved plan <ArrowRight size={14} />
+                Already started? Open your shared home <ArrowRight size={14} />
               </a>
             )}
           </div>
@@ -307,6 +317,88 @@ export default function Home() {
             </article>
           </div>
         </section>
+        <section className="life-after-plan">
+          <div className="section-heading">
+            <p className="eyebrow">THE PLAN IS JUST THE BEGINNING</p>
+            <h2>
+              Life keeps happening.
+              <br />
+              Keep figuring it out together.
+            </h2>
+            <p>
+              A new sofa. A new subscription. A week that felt tighter than
+              expected. Give each conversation a place to go, and a next step
+              you both chose.
+            </p>
+          </div>
+          <div className="life-feature-grid">
+            <article className="life-feature decision-feature">
+              <div className="life-feature-label">
+                <ShoppingBag size={19} /> THE NEXT BIG PURCHASE
+              </div>
+              <h3>“Now, or save for it?”</h3>
+              <p>
+                Share your comfort limits separately. Compare the cost for each
+                person, choose a timeline, and both say yes to the same option.
+              </p>
+              <div className="life-example-card">
+                <span className="overline">ILLUSTRATIVE EXAMPLE</span>
+                <h4>
+                  A sofa for our living room <span>$900</span>
+                </h4>
+                <div className="life-example-voices">
+                  <span>“I’d like it soon.”</span>
+                  <span>“Could we save first?”</span>
+                </div>
+                <div className="life-example-result">
+                  <CheckCheck size={19} />
+                  <span>
+                    <strong>Save over 3 months</strong>Track what each of you
+                    sets aside.
+                  </span>
+                </div>
+              </div>
+            </article>
+            <article className="life-feature checkin-feature">
+              <div className="life-feature-label">
+                <CalendarDays size={19} /> A SMALL WEEKLY RITUAL
+              </div>
+              <h3>“How did this week feel?”</h3>
+              <p>
+                Say what worked and what needs to change. Read each other’s
+                answers after you both share, then agree on one small next step.
+              </p>
+              <div className="life-example-card">
+                <span className="overline">ILLUSTRATIVE EXAMPLE</span>
+                <h4>One thing we’ll do this week</h4>
+                <p>Plan three dinners before buying groceries.</p>
+                <div className="life-example-result">
+                  <CheckCheck size={19} />
+                  <span>
+                    <strong>Both on board</strong>A shared action, with an owner
+                    and a date.
+                  </span>
+                </div>
+              </div>
+            </article>
+          </div>
+          <button
+            className="button secondary large"
+            disabled={busy}
+            onClick={demo}
+          >
+            {busy ? "Opening sample…" : "Explore a sample household"}
+            <ArrowUpRight size={17} />
+          </button>
+          <p className="life-demo-note">
+            Try both roles with fictional data. No setup needed.
+          </p>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+        </section>
         <section className="plan-outcome">
           <div>
             <p className="eyebrow">MORE THAN A SPLIT</p>
@@ -316,21 +408,13 @@ export default function Home() {
               you can actually use.
             </h2>
             <p>
-              A household agreement you can save, print, and revisit when life
-              changes.
+              Your monthly agreement, purchase decisions, savings progress, and
+              check-ins — in one shared home. Earlier agreements stay in your
+              history as life changes.
             </p>
             <a className="button primary large" href="/start">
               Start our plan <ArrowRight size={18} />
             </a>
-            <button className="text-button" disabled={busy} onClick={demo}>
-              {busy ? "Opening sample…" : "Explore a sample plan"}
-              <ArrowUpRight size={15} />
-            </button>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
           </div>
           <div className="outcome-paper">
             <div>
@@ -386,6 +470,18 @@ export default function Home() {
             </h2>
           </div>
           <div>
+            <details>
+              <summary>
+                Is it free to use?
+                <PlusIcon />
+              </summary>
+              <p>
+                Yes, this release is free. No card is required and there are no
+                automatic charges. Conversation generation has usage limits;
+                your calculations, shared decisions, and saved progress remain
+                available.
+              </p>
+            </details>
             <details>
               <summary>
                 Can I start without my partner?
@@ -447,7 +543,11 @@ export default function Home() {
       <footer className="landing-footer">
         <Brand />
         <span>A little more clarity for life together.</span>
-        <span>No single “right” way to share.</span>
+        <nav aria-label="Information">
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <a href="mailto:kudomiya@proton.me">Support</a>
+        </nav>
       </footer>
     </div>
   );

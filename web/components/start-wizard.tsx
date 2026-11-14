@@ -192,7 +192,7 @@ export default function StartWizard() {
         throw new Error(
           data.error || "Your draft could not be saved. Please try again.",
         );
-      const link = "/plan/" + data.id + "#key=" + data.token;
+      const link = "/space/" + data.id + "#key=" + data.token;
       try {
         localStorage.setItem("fm:invite:" + data.id, data.invite);
         localStorage.setItem("fm:recent", link);

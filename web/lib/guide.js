@@ -127,6 +127,7 @@ export async function generateGuide(
   provider,
   input,
   send = (url, options) => fetch(url, options),
+  options = { instructions: guideInstructions },
 ) {
   let response;
   try {
@@ -142,7 +143,7 @@ export async function generateGuide(
         store: false,
         max_output_tokens: 1600,
         ...(provider.reasoning ? { reasoning: provider.reasoning } : {}),
-        instructions: guideInstructions,
+        instructions: options.instructions,
         text: { format: guideFormat },
         input: JSON.stringify(input),
       }),

@@ -6,5 +6,6 @@ declare namespace Cloudflare {
     OPENAI_MODEL?: string;
     GROQ_API_KEY?: string;
     GROQ_MODEL?: string;
+    APP_URL?: string;
   }
 }

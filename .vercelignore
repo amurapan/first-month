@@ -1,0 +1,4 @@
+*
+!deploy
+!deploy/vercel
+!deploy/vercel/**

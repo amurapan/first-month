@@ -129,7 +129,11 @@ export function json(data: unknown, status = 200) {
 }
 export async function body(request: Request) {
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin)
+  if (
+    origin &&
+    origin !== new URL(request.url).origin &&
+    origin !== env.APP_URL?.replace(/\/$/, "")
+  )
     throw new HttpError(403, "This request must come from your plan.");
   const raw = await request.text();
   if (raw.length > 30_000)
@@ -248,13 +252,38 @@ export function view(row: Row, room: Room, role: Role) {
     estimate: role === "A" && !visible ? room.estimate || null : null,
   };
 }
-export async function save(row: Row, room: Room) {
-  const result = await database()
+export async function save(
+  row: Row,
+  room: Room,
+  snapshot?: { data: string; createdAt: string },
+) {
+  const update = database()
     .prepare(
       "UPDATE rooms SET data = ?, revision = revision + 1 WHERE id = ? AND revision = ?",
     )
-    .bind(JSON.stringify(room), row.id, row.revision)
-    .run();
+    .bind(JSON.stringify(room), row.id, row.revision);
+  // The accepted snapshot and the revision update succeed in one transaction.
+  // A losing concurrent writer cannot append an agreement to history.
+  const result = snapshot
+    ? (
+        await database().batch([
+          database()
+            .prepare(
+              "INSERT OR IGNORE INTO plan_history (id,room_id,plan_version,data,created_at) SELECT ?,?,?,?,? WHERE EXISTS (SELECT 1 FROM rooms WHERE id = ? AND revision = ?)",
+            )
+            .bind(
+              row.id + ":" + room.planVersion,
+              row.id,
+              room.planVersion,
+              snapshot.data,
+              snapshot.createdAt,
+              row.id,
+              row.revision,
+            ),
+          update,
+        ])
+      )[1]
+    : await update.run();
   if (!result.meta.changes)
     throw new HttpError(
       409,
@@ -371,6 +400,7 @@ export async function create(input: unknown) {
     };
   }
   if (data.demo) {
+    room.plan.method = "proportional";
     room.partners.A = {
       ...profile("Alex"),
       income: 600000,
@@ -408,6 +438,10 @@ export async function create(input: unknown) {
       room.createdAt,
     )
     .run();
+  if (data.demo) {
+    const { seedDemo } = await import("./demo");
+    await seedDemo(database(), id);
+  }
   return { id, token: a, invite: invitation, demoPartnerToken: b };
 }
 export async function mutate(request: Request, id: string) {
@@ -526,6 +560,27 @@ export async function mutate(request: Request, id: string) {
       throw new HttpError(409, "Refresh and try again.");
     return { invite: invitation };
   } else throw new HttpError(400, "Unknown action.");
-  const saved = await save(row, room);
+  let snapshot: { data: string; createdAt: string } | undefined;
+  if (
+    input.action === "decision" &&
+    room.decisions.A === "accepted" &&
+    room.decisions.B === "accepted"
+  ) {
+    const result = calculate(room),
+      createdAt = new Date().toISOString();
+    snapshot = {
+      createdAt,
+      data: JSON.stringify({
+        planVersion: room.planVersion,
+        createdAt,
+        expenses: room.expenses,
+        plan: room.plan,
+        names: [room.partners.A.name, room.partners.B.name],
+        contributions: result.contributionsCents,
+        total: result.sharedCents,
+      }),
+    };
+  }
+  const saved = await save(row, room, snapshot);
   return view(saved, room, role);
 }

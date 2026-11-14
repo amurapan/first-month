@@ -9,3 +9,6 @@ research/*.zip
 node_modules/
 coverage/
 .DS_Store
+
+# Vercel local project state
+.vercel/

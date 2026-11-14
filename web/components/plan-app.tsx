@@ -134,7 +134,7 @@ export default function PlanApp({ id }: { id: string }) {
       setAccess(key);
       try {
         sessionStorage.setItem("fm:key:" + id, key);
-        localStorage.setItem("fm:recent", "/plan/" + id + "#key=" + key);
+        localStorage.setItem("fm:recent", "/space/" + id + "#key=" + key);
       } catch {
         /* The URL still contains the access token. */
       }
@@ -273,7 +273,7 @@ export default function PlanApp({ id }: { id: string }) {
       } catch {
         /* The personal link still grants access. */
       }
-      location.assign("/plan/" + id + "#key=" + data.token);
+      history.replaceState({}, "", "/plan/" + id + "#key=" + data.token);
       location.reload();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Please try again.");
@@ -347,7 +347,7 @@ export default function PlanApp({ id }: { id: string }) {
       );
       return;
     }
-    location.assign("/plan/" + id + "#key=" + key);
+    history.replaceState({}, "", "/plan/" + id + "#key=" + key);
     location.reload();
   }
   async function guide(plan: Plan) {
@@ -606,7 +606,10 @@ export default function PlanApp({ id }: { id: string }) {
       <div className="app-body">
         <header className="app-header">
           <span className="breadcrumb">
-            Our first month <span>/</span> {steps[step]}
+            <a className="text-button" href={"/space/" + id + "#key=" + access}>
+              <House size={15} /> Our home
+            </a>{" "}
+            <span>/</span> {steps[step]}
           </span>
           <div className="header-actions">
             <span className="status-dot" />{" "}
