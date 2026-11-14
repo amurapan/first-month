@@ -47,6 +47,9 @@ await call(path, { key: keyB, data: { action: 'decision', revision: oldRevision,
 state = await mutate(keyB, 'decision', { planVersion: state.planVersion, decision: 'accepted' });
 assert.deepEqual(state.decisions, { A: 'accepted', B: 'accepted' });
 const acceptedVersion = state.planVersion;
+state = await mutate(keyA, 'plan', { plan: state.plan });
+assert.equal(state.planVersion, acceptedVersion, 'Reopening an unchanged plan must preserve its version');
+assert.deepEqual(state.decisions, { A: 'accepted', B: 'accepted' });
 state = await mutate(keyB, 'expenses', { expenses: [{ id: 'rent', label: 'Rent', amount: 280000 }] });
 assert.deepEqual(state.decisions, { A: 'pending', B: 'pending' });
 await call(path, { key: keyA, data: { action: 'decision', revision: state.revision, planVersion: acceptedVersion, decision: 'accepted' }, expected: 409 });
@@ -62,4 +65,5 @@ assert.equal(state.bothShared, false);
 assert.equal('income' in state.partner, false);
 assert.equal(state.guide, null);
 assert.deepEqual(state.decisions, { A: 'pending', B: 'pending' });
+await call(path + '/guide', { key: keyA, data: { revision: state.revision }, expected: 400 });
 console.log(JSON.stringify({ passed: true, httpChecks: checks, covers: ['role authorization', 'single-use invitation', 'mutual sharing', 'private field redaction', 'exact calculations', 'stale-write conflict', 'both approvals', 'revision invalidation', 'persisted check-in', 'withdrawal of sharing'] }));

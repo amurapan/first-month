@@ -102,7 +102,9 @@ export async function mutate(request: Request, id: string) {
     invalidate(room);
   } else if (input.action === 'plan') {
     if (!shared(room)) throw new HttpError(400, 'Both people need to share their answers before comparing a plan.');
-    room.plan = planSchema.parse(input.plan);
+    const nextPlan = planSchema.parse(input.plan);
+    if (Object.keys(nextPlan).every(key => nextPlan[key as keyof Plan] === room.plan[key as keyof Plan])) return view(row, room, role);
+    room.plan = nextPlan;
     calculate(room);
     invalidate(room);
   } else if (input.action === 'decision') {
