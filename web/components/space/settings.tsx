@@ -201,8 +201,8 @@ export default function SpaceSettings({
           <h2>Your data goes with you.</h2>
           <p>
             Export your own answers, mutually shared answers, decisions, weekly
-            check-ins, and available plan history. Your partner’s private
-            answers are excluded.
+            check-ins, available plan history, and shared monthly expense and
+            reimbursement records. Your partner’s private answers are excluded.
           </p>
           <button
             className="button secondary"

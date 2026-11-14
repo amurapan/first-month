@@ -10,6 +10,7 @@ import {
   LockKeyhole,
   Plus,
   RefreshCw,
+  ReceiptText,
   Settings,
   ShoppingBag,
   Wallet,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { Brand } from "./brand";
 import type { SpaceState, SpaceAction } from "@/lib/life-types";
+import MonthBook from "./space/month-book";
 import Overview from "./space/overview";
 import Decisions from "./space/decisions";
 import Reviews from "./space/reviews";
@@ -31,7 +33,7 @@ import {
   useSavedDraft,
 } from "./space/shared";
 
-type Tab = "home" | "decisions" | "reviews" | "settings";
+type Tab = "home" | "months" | "decisions" | "reviews" | "settings";
 export default function SpaceApp({ id }: { id: string }) {
   const [key, setKey] = useState(""),
     [invitation, setInvitation] = useState(""),
@@ -56,7 +58,7 @@ export default function SpaceApp({ id }: { id: string }) {
     setKey(access);
     setInvitation(hash.get("invite") || "");
     const t = url.searchParams.get("tab");
-    if (t && ["home", "decisions", "reviews", "settings"].includes(t))
+    if (t && ["home", "months", "decisions", "reviews", "settings"].includes(t))
       setTab(t as Tab);
     setSelected(url.searchParams.get("decision"));
     setReady(true);
@@ -94,12 +96,24 @@ export default function SpaceApp({ id }: { id: string }) {
     const timer = setTimeout(() => setToast(""), 4500);
     return () => clearTimeout(timer);
   }, [toast]);
+  useEffect(() => {
+    if (error)
+      requestAnimationFrame(() =>
+        document
+          .querySelector('[role="alert"]')
+          ?.scrollIntoView({ block: "start", behavior: "smooth" }),
+      );
+  }, [error]);
   function navigate(next: Tab, decision: string | null = null) {
     setTab(next);
     setSelected(decision);
     setError("");
     const url = new URL(location.href);
     url.searchParams.set("tab", next);
+    for (const p of ["entry", "entryId", "category", "original"])
+      url.searchParams.delete(p);
+    if (next === "months")
+      url.searchParams.set("month", new Date().toISOString().slice(0, 7));
     decision
       ? url.searchParams.set("decision", decision)
       : url.searchParams.delete("decision");
@@ -296,6 +310,7 @@ export default function SpaceApp({ id }: { id: string }) {
   const pair = names(state),
     nav = [
       { id: "home", label: "Our home", icon: House },
+      { id: "months", label: "This month", icon: ReceiptText },
       { id: "decisions", label: "Decisions", icon: ShoppingBag },
       { id: "reviews", label: "Weekly check-in", icon: CalendarDays },
       { id: "settings", label: "Our space", icon: Settings },
@@ -390,10 +405,6 @@ export default function SpaceApp({ id }: { id: string }) {
               <span>{label}</span>
             </button>
           ))}
-          <a href={planLink()}>
-            <Wallet size={18} />
-            <span>Plan</span>
-          </a>
         </nav>
         {state.demo && (
           <div className="demo-banner">
@@ -467,6 +478,21 @@ export default function SpaceApp({ id }: { id: string }) {
                   }
                 />
               )}{" "}
+              {tab === "months" && (
+                <MonthBook
+                  state={state}
+                  busy={busy}
+                  act={(action, payload = {}) =>
+                    request("/months", {
+                      action,
+                      roomRevision: state.revision,
+                      ...payload,
+                    })
+                  }
+                  onError={setError}
+                  planLink={planLink}
+                />
+              )}
               {tab === "decisions" && (
                 <Decisions
                   state={state}
@@ -485,6 +511,7 @@ export default function SpaceApp({ id }: { id: string }) {
                   busy={busy}
                   act={act}
                   onGuide={(item) => guide("review", item)}
+                  onMonth={() => navigate("months")}
                   onError={setError}
                   planLink={planLink}
                 />

@@ -12,6 +12,7 @@ import {
   LockKeyhole,
   Plus,
   ShoppingBag,
+  Search,
   Wallet,
 } from "lucide-react";
 import type {
@@ -47,6 +48,26 @@ type Props = {
   onError: (message: string) => void;
   planLink: (step?: number) => string;
 };
+const starters = [
+  {
+    id: "furniture",
+    title: "Something for our home",
+    kind: "purchase",
+    label: "For our home",
+  },
+  {
+    id: "trip",
+    title: "A trip together",
+    kind: "purchase",
+    label: "A trip or goal",
+  },
+  {
+    id: "subscription",
+    title: "A shared subscription",
+    kind: "recurring",
+    label: "A monthly cost",
+  },
+];
 const statusLabel = (item: DecisionView) =>
   item.stale
     ? "Needs a fresh look"
@@ -63,10 +84,13 @@ const statusLabel = (item: DecisionView) =>
               : "Add both perspectives";
 export default function Decisions(props: Props) {
   const { state, busy, selected, onSelect, act, onError } = props,
-    [filter, setFilter] = useState("active");
-  if (selected === "new")
+    [filter, setFilter] = useState("active"),
+    [search, setSearch] = useState("");
+  if (selected?.startsWith("new"))
     return (
       <CreateDecision
+        key={selected}
+        template={starters.find((x) => selected === "new:" + x.id)}
         state={state}
         busy={busy}
         act={act}
@@ -81,10 +105,13 @@ export default function Decisions(props: Props) {
     );
   const items = state.householdDecisions.filter(
     (x) =>
-      filter === "all" ||
-      (filter === "active"
-        ? !["completed", "archived"].includes(x.status)
-        : ["completed", "archived"].includes(x.status)),
+      (x.title + " " + x.context)
+        .toLowerCase()
+        .includes(search.toLowerCase()) &&
+      (filter === "all" ||
+        (filter === "active"
+          ? !["completed", "archived"].includes(x.status)
+          : ["completed", "archived"].includes(x.status))),
   );
   return (
     <>
@@ -102,6 +129,25 @@ export default function Decisions(props: Props) {
           New decision
         </button>
       </div>
+      <div className="decision-starters">
+        {starters.map((t) => (
+          <button key={t.id} onClick={() => onSelect("new:" + t.id)}>
+            <Plus size={14} />
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {state.householdDecisions.length > 3 && (
+        <label className="decision-search">
+          <Search size={18} />
+          <input
+            aria-label="Search decisions"
+            placeholder="Find a decision or agreement"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+      )}
       <div className="filter-tabs" role="group" aria-label="Filter decisions">
         {[
           ["active", "In progress"],
@@ -190,15 +236,28 @@ export default function Decisions(props: Props) {
   );
 }
 function CreateDecision({
+  template,
   state,
   busy,
   act,
   onSelect,
   onError,
-}: Pick<Props, "state" | "busy" | "act" | "onSelect" | "onError">) {
+}: Pick<Props, "state" | "busy" | "act" | "onSelect" | "onError"> & {
+  template?: (typeof starters)[number];
+}) {
   const draft = useSavedDraft(
-    "fm:new-decision:" + state.id + ":" + state.role,
-    { title: "", kind: "purchase", amount: "", context: "" },
+    "fm:new-decision:" +
+      state.id +
+      ":" +
+      state.role +
+      ":" +
+      (template?.id || "custom"),
+    {
+      title: template?.title || "",
+      kind: template?.kind || "purchase",
+      amount: "",
+      context: "",
+    },
   );
   return (
     <>

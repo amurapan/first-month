@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./redesign.css";
+import "./month.css";
 export const metadata: Metadata = {
   title: "First Month — Make room for both of you",
   description:

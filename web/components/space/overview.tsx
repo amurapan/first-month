@@ -1,4 +1,10 @@
 "use client";
+import {
+  currentMonth,
+  currentSettlement,
+  monthTotals,
+  monthOutstanding,
+} from "@/lib/domain/month.js";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -9,6 +15,7 @@ import {
   Clock,
   LockKeyhole,
   Plus,
+  ReceiptText,
 } from "lucide-react";
 import type { SpaceState } from "@/lib/life-types";
 import { ledgerFor, optionsFor } from "@/lib/planning";
@@ -26,7 +33,7 @@ export default function Overview({
   state: SpaceState;
   busy: boolean;
   onNavigate: (
-    tab: "home" | "decisions" | "reviews" | "settings",
+    tab: "home" | "months" | "decisions" | "reviews" | "settings",
     id?: string | null,
   ) => void;
   planLink: (step?: number) => string;
@@ -47,6 +54,15 @@ export default function Overview({
         (!x.proposal && x.bothAnswered) ||
         x.proposal?.approvals[state.role] === "pending",
     ) || active[0];
+  const thisMonth = state.months.find((x) => x.period === currentMonth()),
+    actual = thisMonth ? monthTotals(thisMonth) : null;
+  const pendingReceipts =
+      thisMonth?.entries.filter(
+        (e) => e.kind === "transfer" && !e.confirmed && e.author !== state.role,
+      ).length || 0,
+    receipt = thisMonth ? currentSettlement(thisMonth) : null,
+    needsReceipt =
+      receipt && !receipt.receivedAt && receipt.from !== state.role;
   const review = state.householdReviews.find(
     (x) => x.week === state.currentWeek,
   );
@@ -186,6 +202,54 @@ export default function Overview({
           </span>
         </div>
       </div>
+      {state.bothShared && (
+        <section className="home-month-strip">
+          <ReceiptText size={30} />
+          <div>
+            <h3>
+              {needsReceipt
+                ? "Your partner reported a reimbursement."
+                : pendingReceipts
+                  ? "Your partner reported a transfer."
+                  : thisMonth?.reopen[state.role === "A" ? "B" : "A"]
+                    ? "Your partner asked to correct the month."
+                    : thisMonth?.approvals[state.role === "A" ? "B" : "A"] &&
+                        !thisMonth.approvals[state.role]
+                      ? "Your partner has reviewed the month."
+                      : thisMonth
+                        ? thisMonth.status === "agreed"
+                          ? "Your month, checked together."
+                          : "How is the plan working in real life?"
+                        : "Give your plan a little follow-through."}
+            </h3>
+            <p>
+              {needsReceipt
+                ? "Confirm whether you received " + money(receipt!.amount) + "."
+                : pendingReceipts
+                  ? "Confirm receipt to include it in the shared balance."
+                  : actual
+                    ? money(actual.total) +
+                      " recorded in shared costs" +
+                      (thisMonth!.status === "agreed" &&
+                      monthOutstanding(thisMonth!) !== 0
+                        ? " · A reimbursement is still outstanding."
+                        : " · Compare your plan and what you actually covered.")
+                    : "Record shared costs, see who covered what, and settle up together."}
+            </p>
+          </div>
+          <button
+            className="button secondary"
+            onClick={() => onNavigate("months")}
+          >
+            {needsReceipt || pendingReceipts
+              ? "Review the transfer"
+              : thisMonth
+                ? "Open this month"
+                : "Start this month"}
+            <ArrowRight size={16} />
+          </button>
+        </section>
+      )}
       <div className="home-below-grid">
         <section className="home-money-panel">
           <div className="home-section-top">

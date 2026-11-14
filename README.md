@@ -10,7 +10,11 @@ A shared home for the money decisions couples make when moving in together — a
 - Private answers stay hidden until both people explicitly choose to share.
 - Editable shared expenses and equal, income-based, or custom contributions.
 - Both partners confirm the same plan version; changes reset both confirmations.
-- A household dashboard with next steps based on each person’s actual progress.
+- A household dashboard with next steps based on each person’s actual progress and transfers awaiting receipt confirmation.
+- Monthly expense, refund, and reimbursement records with a frozen split, planned-versus-recorded comparisons, two-person confirmation, and version history.
+- Sender-reported transfers count only after the receiver confirms. Correcting a confirmed month requires both people and retains previously confirmed settlements.
+- Quick expense entry with saved drafts, category shortcuts, search, CSV and statement exports, and printing.
+- Decision starters for furniture, trips, and recurring costs; amounts always come from the user.
 - Purchase and recurring-cost decisions with private perspectives, calculated timing/price/split options, and two separate confirmations.
 - A combined commitment ledger: accepted purchases and savings goals stay visible when evaluating the next decision.
 - A live landing-page example and a fictional household with an existing travel goal and a sofa decision.
@@ -37,13 +41,14 @@ npm --prefix web ci
 npm run build
 ```
 
-On a fresh local database, apply the three schema migrations once:
+On a fresh local database, apply the four schema migrations once:
 
 ```sh
 cd web
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_cultured_inhumans.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_daily_anita_blake.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0002_workable_bug.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0003_lively_mephisto.sql
 cd ..
 npm run dev
 ```
@@ -58,9 +63,10 @@ node web/node_modules/typescript/bin/tsc -p web/tsconfig.json --noEmit
 # With the local server running:
 npm run check:api
 npm run check:household
+npm run check:month
 ```
 
-The domain tests cover exact-cent allocations and savings schedules, unknown versus zero income, incomplete personal budgets, weekly boundaries, private perspectives, and agreement transitions. The API check creates fictional local records and verifies role authorization, private-field redaction, invitation reuse, stale writes, both approvals, persisted check-ins, and isolation of preliminary estimates from actual partner answers. The household check also verifies cross-household isolation, purchase approvals, per-role saving progress, weekly actions, immutable history, atomic recurring-cost application, key rotation, and deletion. It removes its own fictional test rooms. Set `TEST_BASE_URL` explicitly to test another environment.
+The domain tests cover exact-cent allocations and savings schedules, unknown versus zero income, incomplete personal budgets, weekly boundaries, private perspectives, and agreement transitions. The API check creates fictional local records and verifies role authorization, private-field redaction, invitation reuse, stale writes, both approvals, persisted check-ins, and isolation of preliminary estimates from actual partner answers. The household check also verifies cross-household isolation, purchase approvals, per-role saving progress, weekly actions, immutable history, atomic recurring-cost application, key rotation, and deletion. The monthly check additionally covers refunds, recorded payers, receipt confirmations, idempotent additions, fixed historical ratios, concurrent-edit rejection, two-person corrections, and closed history. The checks remove their own fictional test rooms. Set `TEST_BASE_URL` explicitly to test another environment.
 
 ## Layout
 
@@ -70,7 +76,9 @@ The domain tests cover exact-cent allocations and savings schedules, unknown ver
 - `web/components/plan-app.tsx`: monthly budget and printable agreement
 - `web/lib/room.ts`: authorization, monthly-plan storage, and data visibility
 - `web/lib/life.ts` and `conversation.ts`: household decisions, check-ins, and contextual generation
-- `web/lib/domain/`: deterministic budget and approval logic
+- `web/lib/months.ts` and `month-types.ts`: monthly ledger, receipts, and versioned confirmation
+- `web/components/space/month-book.tsx`: monthly review and fast entry
+- `web/lib/domain/`: deterministic budget, ledger and approval logic
 - `web/db/` and `web/drizzle/`: D1 schema and migrations
 - `research/`: source accounts and draft participant studies
 
@@ -84,7 +92,7 @@ Estimated partner income is visible only to its author and never fills the partn
 
 Personal commitments change the remaining-money calculation, not the income-based split itself. The application shows the consequences of a proposed arrangement without deciding whether it is fair.
 
-The model endpoints only use mutually shared names, priorities, notes, expense categories, the chosen split method, whether each person’s preference is met, and the relevant decision or check-in context. Structured income, expense amounts, and remaining balances are not sent to the provider; free-text notes are transmitted as entered. The guide is an aid for starting a conversation; all arithmetic is deterministic and shown separately. Monthly-plan guides have an eight-attempt limit per room; purchase and check-in guides have a twelve-attempt limit per conversation. All share a global 100-attempt daily cap and a 45-second timeout, with caching tied to the current plan and answer revisions. The model returns three questions and an opening sentence as validated JSON. Budget context comes from deterministic calculations; model reasoning is never displayed. Changes invalidate the guide and both approvals; saving unchanged terms preserves them.
+The model endpoints only use mutually shared names, priorities, notes, expense categories, the chosen split method, whether each person’s preference is met, and the relevant decision or check-in context. Structured income, expense amounts, and remaining balances are not sent to the provider; free-text notes are transmitted as entered. The guide is an aid for starting a conversation; all arithmetic is deterministic and shown separately. Monthly-plan guides have an eight-attempt limit per room; purchase and check-in guides have a twelve-attempt limit per conversation. All share a global 100-attempt daily cap and a 45-second timeout, with caching tied to the current plan and answer revisions. Weekly recaps also use category-level monthly facts and are invalidated when the current month changes; structured monetary amounts and receipt entries are not sent to the model. The model returns three questions and an opening sentence as validated JSON. Budget context comes from deterministic calculations; model reasoning is never displayed. Changes invalidate the guide and both approvals; saving unchanged terms preserves them.
 
 To print or save a PDF, open the agreement and choose **Print / save PDF**. The printable document contains the shared expenses, contributions, remaining balances, transfer rule, purchase threshold, next review, and each person's approval state.
 
@@ -98,7 +106,9 @@ No paid services were enabled. Vercel Hobby is for personal, non-commercial use;
 
 Decision comparisons include the monthly budget and other accepted commitments across a 24-month projection. Unapproved ideas are not reserved. Accepted contribution amounts are frozen, and saving deadlines do not silently move forward each month. A replacement proposal retains the earlier agreement until both approve a replacement or both cancel. Completed purchases are immutable; a new purchase starts a new decision. Final approvals on different decisions share a parent revision, preventing simultaneous approvals from silently relying on the same unreserved balance.
 
-Savings progress is self-reported. New progress increases count in the current UTC month; legacy undated totals are treated as previously set aside. Completing a savings goal does not deduct its full price again. Applied recurring costs move into the monthly budget without being counted twice. Projections hold income and bills constant and are not bank balances or actual spending records. Unknown personal costs and comfort amounts are explicitly incomplete, never a verified fit. The workspace displays up to 200 decisions, 104 weekly check-ins, and 60 accepted plan snapshots; exports include all saved check-ins and snapshots. Weekly boundaries are Monday in UTC. Calendar reminders are downloaded by the user; there is no email scheduler.
+Savings progress is self-reported. New progress increases count in the current UTC month; legacy undated totals are treated as previously set aside. Completing a savings goal does not deduct its full price again. Applied recurring costs move into the monthly budget without being counted twice. Projections hold income and bills constant and are not bank balances or actual spending records. Unknown personal costs and comfort amounts are explicitly incomplete, never a verified fit. The workspace displays up to 200 decisions, 104 weekly check-ins, 120 monthly records (250 entries and 12 confirmed snapshots each), and 60 accepted plan snapshots; exports include all saved check-ins and snapshots. Weekly boundaries are Monday in UTC. Calendar reminders are downloaded by the user; there is no email scheduler.
+
+The monthly ledger is separate from savings projections: planned costs, approved goals, and reported goal funding never create actual payments automatically. It supports shared expenses paid from A/B personal funds, same-month refunds tied to an expense, and transfers reported by the sender and confirmed by the recipient. Joint accounts and already pooled savings are not supported. Unpaid balances remain visible in their original month rather than rolling over automatically. Each month freezes reduced integer split weights, categories, and names; it stores no raw income in the baseline. Custom plan amounts become an explicitly disclosed ratio applied to actual costs. Expense additions use stable client IDs for safe network retries. Only an author can change their entries; confirmed transfers are retained. Financial edits clear both monthly approvals. Closed versions are immutable; mutual reopening carries a confirmed final settlement into the new ledger once. Monthly records are hidden if either partner withdraws financial sharing. Dates and monthly boundaries use UTC.
 
 Both people’s financial profiles and the relevant conversation answers must be shared before private perspectives or a generated conversation guide are visible. Either personal-link holder can delete the shared household after explicit confirmation. Store a private export first if needed. There is no operator recovery flow for lost personal links.
 

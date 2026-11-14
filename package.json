@@ -9,7 +9,8 @@
     "dev": "npm --prefix web run dev",
     "build": "npm --prefix web run build",
     "check:api": "node web/scripts/check-api.mjs",
-    "check:household": "node web/scripts/check-household.mjs"
+    "check:household": "node web/scripts/check-household.mjs",
+    "check:month": "node web/scripts/check-month.mjs"
   },
   "engines": {
     "node": ">=22"

@@ -12,9 +12,10 @@ export default function Privacy() {
       <p>
         We store the information you save: names, income, optional personal
         costs and preferences, shared expenses, decision answers and proposals,
-        weekly check-ins, confirmations, and plan history. We do not connect to
-        bank accounts, collect bank credentials, move money, or take payment in
-        this release.
+        weekly check-ins, confirmations, plan history, and monthly records of
+        shared costs, refunds, and reported transfers. We do not connect to bank
+        accounts, collect bank credentials, move money, or take payment in this
+        release.
       </p>
       <h2>What your partner sees</h2>
       <p>
@@ -23,20 +24,23 @@ export default function Privacy() {
         author. Personal answers to a decision or weekly check-in have a
         separate sharing choice and appear together after both people share.
         Titles, proposed costs, shared action items, and agreements belong to
-        your shared space. Anyone with a personal link can access and act as
-        that role.
+        your shared space. Monthly records are shared records and are available
+        while both financial profiles are shared; there is no private expense
+        mode in the monthly ledger. Anyone with a personal link can access and
+        act as that role.
       </p>
       <h2>Generated conversation support</h2>
       <p>
         When you request a conversation guide or recap, the service sends
         mutually shared names, priorities, notes, relevant decision or check-in
-        text, and calculated indicators to Groq, or a configured OpenAI
-        alternative. Structured income, expense amounts, balances, and numeric
-        comfort limits are excluded. Anything you type into a note is sent as
-        written, so avoid information you do not want processed by the provider.
-        We request that generated responses are not stored as response objects;
-        the provider’s own processing policies still apply. Generating a recap
-        is optional.
+        text, category names and calculated indicators (such as which categories
+        exceeded the plan or whether a transfer awaits confirmation) to Groq, or
+        a configured OpenAI alternative. Structured income, expense amounts,
+        balances, and numeric comfort limits are excluded. Anything you type
+        into a note is sent as written, so avoid information you do not want
+        processed by the provider. We request that generated responses are not
+        stored as response objects; the provider’s own processing policies still
+        apply. Generating a recap is optional.
       </p>
       <h2>Storage and hosting</h2>
       <p>

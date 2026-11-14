@@ -1,3 +1,4 @@
+import type { MonthView } from "./month-types";
 import type { Expense, Plan, Profile, Role } from "./room";
 
 export type DecisionAnswer = {
@@ -83,7 +84,7 @@ export type HouseholdReview = {
     approvals: Record<Role, boolean>;
     completed: boolean;
   } | null;
-  guide?: { text: string; key: string };
+  guide?: { text: string; key: string; contextKey?: string };
   guideCount?: number;
 };
 export type ReviewView = Omit<HouseholdReview, "answers" | "guide"> & {
@@ -126,6 +127,7 @@ export type SpaceState = {
     partnerIncome: number | null;
     method: "equal" | "proportional";
   } | null;
+  months: MonthView[];
   householdDecisions: DecisionView[];
   decisionCount: number;
   householdReviews: ReviewView[];

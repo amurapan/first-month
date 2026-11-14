@@ -57,3 +57,16 @@ export const planHistory = sqliteTable(
     uniqueIndex("history_room_version").on(table.roomId, table.planVersion),
   ],
 );
+
+export const householdMonths = sqliteTable(
+  "household_months",
+  {
+    id: text("id").primaryKey(),
+    roomId: text("room_id").notNull(),
+    period: text("period").notNull(),
+    data: text("data").notNull(),
+    revision: integer("revision").notNull().default(1),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("month_room_period").on(table.roomId, table.period)],
+);

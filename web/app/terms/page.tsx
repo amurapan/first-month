@@ -30,6 +30,23 @@ export default function Terms() {
         not determine who is right or guarantee that a spending choice will work
         for your situation.
       </p>
+      <h2>Monthly records</h2>
+      <p>
+        The monthly ledger records shared costs covered from personal funds.
+        Planned costs and saving goals are not automatically recorded as
+        payments. Joint-account spending and purchases from an already shared
+        savings pot are outside this ledger. Refunds refer to expenses in the
+        same month. An unpaid balance remains attached to its month rather than
+        being carried into a later one automatically.
+      </p>
+      <p>
+        Each month stores its own categories and split. Actual costs use that
+        saved ratio; a custom monthly plan is applied as a ratio of the planned
+        contributions. Both people confirm a month. The receiving person
+        confirms a reported transfer. These are your statements, not independent
+        verification of money movement. Reopening a confirmed month needs both
+        people and preserves the earlier record.
+      </p>
       <h2>Access and availability</h2>
       <p>
         No account or paid subscription is required for this release. Access is

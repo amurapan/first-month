@@ -1,3 +1,5 @@
+import { captureBaseline } from "./months";
+import type { HouseholdMonth } from "./month-types";
 import { commitmentLedger, projectOption } from "./domain/planning.js";
 import { calculate } from "./room";
 import type { Room } from "./room";
@@ -133,7 +135,64 @@ export async function seedDemo(db: D1Database, roomId: string, room: Room) {
       },
       action: null,
     };
+  const period = now.slice(0, 7),
+    day = now.slice(0, 10);
+  const month: HouseholdMonth = {
+    period,
+    baseline: captureBaseline(room),
+    entries: [
+      {
+        id: crypto.randomUUID(),
+        kind: "expense",
+        amount: 240000,
+        paidA: 240000,
+        categoryId: room.expenses[0].id,
+        title: room.expenses[0].label,
+        date: day,
+        author: "A",
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: crypto.randomUUID(),
+        kind: "expense",
+        amount: 26000,
+        paidA: 0,
+        categoryId: room.expenses[1].id,
+        title: room.expenses[1].label,
+        date: day,
+        author: "B",
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: crypto.randomUUID(),
+        kind: "expense",
+        amount: 32000,
+        paidA: 0,
+        categoryId: room.expenses[2].id,
+        title: "Groceries for our first two weeks",
+        date: day,
+        author: "B",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    version: 1,
+    status: "open",
+    approvals: { A: false, B: false },
+    reopen: {},
+    history: [],
+    settlements: [],
+    createdAt: now,
+    updatedAt: now,
+  };
   await db.batch([
+    db
+      .prepare(
+        "INSERT INTO household_months (id,room_id,period,data,revision,updated_at) VALUES (?,?,?,?,1,?)",
+      )
+      .bind(roomId + ":" + period, roomId, period, JSON.stringify(month), now),
     db
       .prepare(
         "INSERT INTO household_decisions (id,room_id,data,revision,created_at,updated_at) VALUES (?,?,?,1,?,?)",

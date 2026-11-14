@@ -370,7 +370,8 @@ export default function Home() {
             </h2>
             <p>
               The trip you’re saving for still counts when you compare a new
-              purchase. Your next check-in picks up from the decisions you made.
+              purchase. Record shared costs, settle up, and bring what changed
+              into your next check-in.
             </p>
             <button
               className="button light large"
@@ -416,6 +417,17 @@ export default function Home() {
               </div>
             </div>
             <div className="path-row">
+              <span className="path-dot">↔</span>
+              <div>
+                <span>YOUR MONTH IN REAL LIFE</span>
+                <h3>Know what you each covered.</h3>
+                <p>
+                  Record shared costs, compare them with your plan, and confirm
+                  any reimbursement together.
+                </p>
+              </div>
+            </div>
+            <div className="path-row">
               <span className="path-dot">↗</span>
               <div>
                 <span>YOUR WEEKLY MOMENT</span>
@@ -452,8 +464,8 @@ export default function Home() {
                 "Each person has a private access link. Financial profiles and conversation answers appear to your partner after both people share. Save your link somewhere private; there is no account recovery without it. You can export your data, replace your link, or delete the space.",
               ],
               [
-                "Is this a bank or a spending tracker?",
-                "No bank connection, money transfers, or verified account balances. The comparisons use the monthly plan and savings you enter, including other agreed commitments. Update your inputs when life changes.",
+                "Do we need to connect our banks?",
+                "No. You enter your plan and record shared costs paid from personal funds. First Month compares planned and recorded costs and calculates reimbursements; you send any money yourselves and the recipient confirms it. Joint accounts and already shared savings pots are outside the monthly ledger.",
               ],
               [
                 "What does it cost?",

@@ -1,4 +1,9 @@
 "use client";
+import {
+  currentMonth,
+  monthTotals,
+  monthOutstanding,
+} from "@/lib/domain/month.js";
 import { ledgerFor } from "@/lib/planning";
 import { useState } from "react";
 import {
@@ -25,6 +30,7 @@ import {
   fullDate,
   GuideCard,
   names,
+  money,
   ShareNote,
   sideName,
   useSavedDraft,
@@ -41,7 +47,9 @@ export default function Reviews({
   onGuide,
   onError,
   planLink,
+  onMonth,
 }: {
+  onMonth: () => void;
   state: SpaceState;
   busy: boolean;
   act: SpaceAction;
@@ -54,6 +62,9 @@ export default function Reviews({
     ),
     pair = names(state),
     own = current?.answers[state.role] as ReviewAnswer | undefined;
+  const month = state.months.find((x) => x.period === currentMonth()),
+    actual = month ? monthTotals(month) : null,
+    overCategory = actual?.categories.find((x) => x.difference > 0);
   const [editing, setEditing] = useState(!own);
   function calendar() {
     const start = afterDays(7).replaceAll("-", "");
@@ -99,6 +110,29 @@ export default function Reviews({
           Add weekly reminder
         </button>
       </div>
+      {actual && actual.expenseCount > 0 && (
+        <section className="month-review-context">
+          <p className="eyebrow">SOMETHING REAL TO TALK ABOUT</p>
+          <h3>
+            {overCategory
+              ? overCategory.label + " went above the plan."
+              : "Your month is taking shape."}
+          </h3>
+          <p>
+            {overCategory
+              ? money(overCategory.actual) +
+                " recorded against " +
+                money(overCategory.planned) +
+                " planned. Does the plan need to change, or was this an unusual week?"
+              : money(actual.total) +
+                " in shared costs recorded so far. Check whether anything is missing before choosing your next step."}
+          </p>
+          <button className="text-button" onClick={onMonth}>
+            Look at this month
+            <ArrowRight size={15} />
+          </button>
+        </section>
+      )}
       {!own || editing ? (
         <ReviewForm
           key={state.currentWeek + ":" + state.role}
@@ -400,13 +434,21 @@ function WeeklyAction({
     saving = state.householdDecisions.find(
       (x) => x.status === "agreed" && x.kind === "purchase",
     );
-  const suggestion = overdue
-    ? `Review the missed savings date for “${overdue.title}” and agree on a new timeline.`
-    : pending
-      ? `Compare the options for “${pending.title}” and choose our next step.`
-      : saving
-        ? `Check what we have each set aside for “${saving.title}” and update our progress.`
-        : "";
+  const currentRecord = state.months.find((x) => x.period === currentMonth()),
+    currentActual = currentRecord ? monthTotals(currentRecord) : null,
+    over = currentActual?.categories.find((x) => x.difference > 0);
+  const suggestion =
+    currentRecord?.status === "agreed" && monthOutstanding(currentRecord) !== 0
+      ? "Check the outstanding reimbursement from our confirmed month."
+      : over
+        ? `Review our ${over.label.toLowerCase()} spending against the monthly plan and decide whether to adjust it.`
+        : overdue
+          ? `Review the missed savings date for “${overdue.title}” and agree on a new timeline.`
+          : pending
+            ? `Compare the options for “${pending.title}” and choose our next step.`
+            : saving
+              ? `Check what we have each set aside for “${saving.title}” and update our progress.`
+              : "";
   if (editing)
     return (
       <form

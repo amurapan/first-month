@@ -35,7 +35,9 @@ export async function POST(
         format: "first-month-export-v1",
         exportedAt: new Date().toISOString(),
         ...result,
-        householdReviews: reviews.results.map((r) => reviewView(r, room, role)),
+        householdReviews: reviews.results.map((r) =>
+          reviewView(r, room, role, result.months),
+        ),
         planHistory: result.bothShared
           ? history.results.map((x) => JSON.parse(x.data))
           : [],
@@ -71,6 +73,7 @@ export async function POST(
         "household_decisions",
         "household_reviews",
         "plan_history",
+        "household_months",
       ];
       const statements = tables.map((table) =>
         database()

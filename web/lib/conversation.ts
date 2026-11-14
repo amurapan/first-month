@@ -1,3 +1,5 @@
+import { monthViews } from "./months";
+import { currentMonth, monthTotals, monthOutstanding } from "./domain/month.js";
 import { env } from "cloudflare:workers";
 import {
   authorize,
@@ -34,6 +36,8 @@ export async function conversation(request: Request, id: string) {
   const row = await getRecord(table, id, String(input.id)),
     item = JSON.parse(row.data) as HouseholdDecision | HouseholdReview;
   const records = input.kind === "decision" ? await householdRecords(id) : [];
+  const months = input.kind === "review" ? await monthViews(id, true) : [],
+    month = months.find((m) => m.period === currentMonth());
   const contextKey =
     input.kind === "decision"
       ? commitmentLedger(
@@ -41,7 +45,7 @@ export async function conversation(request: Request, id: string) {
           room.expenses.map((x) => x.id),
           row.id,
         ).key
-      : undefined;
+      : currentMonth() + ":" + (month?.revision || 0);
   if (!bothAnswersShared(item))
     throw new HttpError(
       400,
@@ -49,8 +53,7 @@ export async function conversation(request: Request, id: string) {
     );
   if (
     item.guide?.key === room.planVersion + ":" + row.revision &&
-    (input.kind !== "decision" ||
-      (item as HouseholdDecision).guide?.contextKey === contextKey)
+    item.guide?.contextKey === contextKey
   )
     return workspace(request, id);
   if (input.revision !== row.revision)
@@ -105,6 +108,19 @@ export async function conversation(request: Request, id: string) {
     facts = {
       week: (item as HouseholdReview).week,
       action: (item as HouseholdReview).action,
+      month: month
+        ? {
+            period: month.period,
+            hasRecordedCosts: month.entries.some((x) => x.kind === "expense"),
+            categoriesAbovePlan: monthTotals(month)
+              .categories.filter((x) => x.difference > 0)
+              .map((x) => x.label),
+            pendingTransferReceipts: monthTotals(month).pending,
+            monthConfirmed: month.status === "agreed",
+            reimbursementOutstanding:
+              month.status === "agreed" && monthOutstanding(month) !== 0,
+          }
+        : null,
     };
   }
   const raw = await generateGuide(
@@ -152,7 +168,10 @@ export async function conversation(request: Request, id: string) {
           latest.room.expenses.map((x) => x.id),
           row.id,
         ).key
-      : undefined;
+      : currentMonth() +
+        ":" +
+        ((await monthViews(id, true)).find((m) => m.period === currentMonth())
+          ?.revision || 0);
   if (
     latest.room.planVersion !== room.planVersion ||
     !shared(latest.room) ||

@@ -1,3 +1,6 @@
+import { currentMonth } from "./domain/month.js";
+import type { MonthView } from "./month-types";
+import { monthViews } from "./months";
 import { z } from "zod";
 import {
   authorize,
@@ -93,7 +96,12 @@ export function decisionView(
         : null,
   };
 }
-export function reviewView(row: RecordRow, room: Room, role: Role): ReviewView {
+export function reviewView(
+  row: RecordRow,
+  room: Room,
+  role: Role,
+  months: MonthView[] = [],
+): ReviewView {
   const item = JSON.parse(row.data) as HouseholdReview,
     visible = shared(room) && bothAnswersShared(item);
   return {
@@ -102,14 +110,19 @@ export function reviewView(row: RecordRow, room: Room, role: Role): ReviewView {
     revision: row.revision,
     bothAnswered: visible,
     guide:
-      visible && item.guide?.key === room.planVersion + ":" + row.revision
+      visible &&
+      item.guide?.key === room.planVersion + ":" + row.revision &&
+      item.guide.contextKey ===
+        currentMonth() +
+          ":" +
+          (months.find((m) => m.period === currentMonth())?.revision || 0)
         ? item.guide.text
         : null,
   };
 }
 export async function workspace(request: Request, id: string) {
   const { row, room, role } = await authorize(request, id);
-  const [decisions, reviews, history, count] = await Promise.all([
+  const [decisions, reviews, history, count, months] = await Promise.all([
     database()
       .prepare(
         "SELECT * FROM household_decisions WHERE room_id = ? ORDER BY updated_at DESC LIMIT 200",
@@ -134,16 +147,20 @@ export async function workspace(request: Request, id: string) {
       )
       .bind(id)
       .first<{ count: number }>(),
+    monthViews(id, shared(room)),
   ]);
   const allDecisions = decisions.results.map(
     (x) => JSON.parse(x.data) as HouseholdDecision,
   );
   return {
     ...view(row, room, role),
+    months,
     householdDecisions: decisions.results.map((x) =>
       decisionView(x, room, role, allDecisions),
     ),
-    householdReviews: reviews.results.map((x) => reviewView(x, room, role)),
+    householdReviews: reviews.results.map((x) =>
+      reviewView(x, room, role, months),
+    ),
     decisionCount: count?.count || 0,
     planHistory: shared(room)
       ? history.results.map((x) => JSON.parse(x.data) as PlanSnapshot)
