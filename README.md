@@ -2,6 +2,8 @@
 
 A shared spending plan for couples moving in together.
 
+[Open First Month](https://first-month-amurapan.generousbench1.chatgpt.site) — no login required. Choose **Try an example** to explore both roles with fictional data, or create a plan and invite your partner.
+
 ## Product
 
 - Separate personal links for two partners, with a single-use invitation.
