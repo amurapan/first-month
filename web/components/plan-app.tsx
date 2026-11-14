@@ -55,9 +55,23 @@ export default function PlanApp({ id }: { id: string }) {
     if (!state) return;
     setBusy(true); setError('');
     try {
-      const response = await fetch('/api/rooms/' + id, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + access }, body: JSON.stringify({ action, revision: state.revision, ...payload }) });
-      const data = await response.json() as State & { error?: string; token: string; invite?: string };
-      if (!response.ok) { if (response.status === 409) await refresh(); throw new Error(data.error); }
+      const send = (revision: number) => fetch('/api/rooms/' + id, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + access }, body: JSON.stringify({ action, revision, ...payload }) });
+      let response = await send(state.revision);
+      let data = await response.json() as State & { error?: string; token: string; invite?: string };
+      if (response.status === 409) {
+        const latest = await refresh();
+        const independentChange = latest && (
+          (action === 'profile' && JSON.stringify(latest.self) === JSON.stringify(state.self)) ||
+          (action === 'expenses' && JSON.stringify(latest.expenses) === JSON.stringify(state.expenses)) ||
+          (['plan', 'decision'].includes(action) && latest.planVersion === state.planVersion) ||
+          action === 'checkin'
+        );
+        if (independentChange) {
+          response = await send(latest.revision);
+          data = await response.json() as typeof data;
+        }
+      }
+      if (!response.ok) throw new Error(data.error);
       if (data.revision) setState(data); else await refresh();
       setToast('Saved to your shared space'); return data;
     } catch (error) { setError(error instanceof Error ? error.message : 'Please try again.'); return null; }
