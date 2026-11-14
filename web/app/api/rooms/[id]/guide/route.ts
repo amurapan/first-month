@@ -54,7 +54,10 @@ export async function POST(
         name: person.name,
         priority: person.priority,
         note: person.concern,
-        preferenceMet: calculated.minimumRemainingMet[index],
+        preferenceMet:
+          person.refined === false
+            ? null
+            : calculated.minimumRemainingMet[index],
       })),
       sharedExpenseCategories: room.expenses.map((expense) => expense.label),
       allSharedExpensesCovered: true,

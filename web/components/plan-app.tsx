@@ -23,7 +23,9 @@ import {
   Sparkles,
   Printer,
 } from "lucide-react";
-import { Brand } from "@/app/page";
+import { Brand } from "@/components/brand";
+import SavedPreview from "@/components/saved-preview";
+import { readDraft, writeDraft, clearDraft } from "@/lib/browser-draft";
 import { calculateBudget } from "@/lib/domain/budget.js";
 import type { Profile, Expense, Plan, Role } from "@/lib/room";
 
@@ -32,7 +34,11 @@ type State = {
   revision: number;
   role: Role;
   demo: boolean;
-  moveDate: string;
+  moveDate: string | null;
+  estimate: {
+    partnerIncome: number | null;
+    method: "equal" | "proportional";
+  } | null;
   self: Profile;
   partner: Partial<Profile> & { name: string };
   bothShared: boolean;
@@ -108,7 +114,16 @@ export default function PlanApp({ id }: { id: string }) {
   const initialized = useRef(false);
   useEffect(() => {
     const params = new URLSearchParams(location.hash.slice(1)),
-      key = params.get("key") || sessionStorage.getItem("fm:key:" + id) || "";
+      key =
+        params.get("key") ||
+        (() => {
+          try {
+            return sessionStorage.getItem("fm:key:" + id);
+          } catch {
+            return null;
+          }
+        })() ||
+        "";
     const invite = params.get("invite") || "";
     if (invite && !params.get("key")) {
       setInvitation(invite);
@@ -117,11 +132,21 @@ export default function PlanApp({ id }: { id: string }) {
     }
     if (key) {
       setAccess(key);
-      sessionStorage.setItem("fm:key:" + id, key);
-      localStorage.setItem("fm:recent", "/plan/" + id + "#key=" + key);
+      try {
+        sessionStorage.setItem("fm:key:" + id, key);
+        localStorage.setItem("fm:recent", "/plan/" + id + "#key=" + key);
+      } catch {
+        /* The URL still contains the access token. */
+      }
     }
     setBooted(true);
-    const savedInvite = localStorage.getItem("fm:invite:" + id);
+    const savedInvite = (() => {
+      try {
+        return localStorage.getItem("fm:invite:" + id);
+      } catch {
+        return null;
+      }
+    })();
     if (savedInvite)
       setInviteLink(location.origin + "/plan/" + id + "#invite=" + savedInvite);
   }, [id]);
@@ -139,7 +164,23 @@ export default function PlanApp({ id }: { id: string }) {
     setState(data);
     if (!initialized.current) {
       initialized.current = true;
-      setStep(data.self.submitted ? (data.bothShared ? 2 : 1) : 0);
+      const savedStep = readDraft<number>("fm:step:" + id + ":" + data.role);
+      const agreed =
+        data.decisions.A === "accepted" && data.decisions.B === "accepted";
+      setStep(
+        savedStep !== null &&
+          Number.isInteger(savedStep) &&
+          savedStep >= 0 &&
+          savedStep <= 4
+          ? savedStep
+          : agreed
+            ? 3
+            : data.estimate || data.bothShared
+              ? 2
+              : data.self.submitted
+                ? 1
+                : 0,
+      );
     }
     return data as State;
   }, [access, id]);
@@ -156,6 +197,10 @@ export default function PlanApp({ id }: { id: string }) {
     const timer = setTimeout(() => setToast(""), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
+  useEffect(() => {
+    if (state && initialized.current)
+      writeDraft("fm:step:" + id + ":" + state.role, step);
+  }, [step, state?.role, id]);
   async function mutate(action: string, payload: Record<string, unknown> = {}) {
     if (!state) return;
     setBusy(true);
@@ -187,7 +232,10 @@ export default function PlanApp({ id }: { id: string }) {
                 JSON.stringify(state.expenses)) ||
             (["plan", "decision"].includes(action) &&
               latest.planVersion === state.planVersion) ||
-            action === "checkin");
+            action === "checkin" ||
+            (action === "estimate" &&
+              JSON.stringify(latest.estimate) ===
+                JSON.stringify(state.estimate)));
         if (independentChange) {
           response = await send(latest.revision);
           data = (await response.json()) as typeof data;
@@ -220,7 +268,11 @@ export default function PlanApp({ id }: { id: string }) {
         invite?: string;
       };
       if (!response.ok) throw new Error(data.error);
-      sessionStorage.setItem("fm:key:" + id, data.token);
+      try {
+        sessionStorage.setItem("fm:key:" + id, data.token);
+      } catch {
+        /* The personal link still grants access. */
+      }
       location.assign("/plan/" + id + "#key=" + data.token);
       location.reload();
     } catch (error) {
@@ -236,17 +288,54 @@ export default function PlanApp({ id }: { id: string }) {
       setCopyFallback(text);
     }
   }
-  async function invite() {
-    if (inviteLink) {
-      await copy(inviteLink);
-      return;
+  async function invite(share = false) {
+    if (!state) return;
+    let current = state;
+    if (share && !current.self.shared) {
+      const saved = await mutate("profile", {
+        profile: { ...current.self, shared: true },
+      });
+      if (!saved) return;
+      current = saved;
     }
-    const result = await mutate("invite");
-    if (result?.invite) {
-      const url = location.origin + "/plan/" + id + "#invite=" + result.invite;
-      localStorage.setItem("fm:invite:" + id, result.invite);
-      setInviteLink(url);
-      await copy(url);
+    setBusy(true);
+    setError("");
+    try {
+      let link = inviteLink;
+      if (!link) {
+        const response = await fetch("/api/rooms/" + id, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + access,
+          },
+          body: JSON.stringify({
+            action: "invite",
+            revision: current.revision,
+          }),
+        });
+        const result = (await response.json()) as {
+          invite?: string;
+          error?: string;
+        };
+        if (!response.ok || !result.invite)
+          throw new Error(
+            result.error || "Please try copying the invitation again.",
+          );
+        link = location.origin + "/plan/" + id + "#invite=" + result.invite;
+        try {
+          localStorage.setItem("fm:invite:" + id, result.invite);
+        } catch {
+          /* Link is also held in the current page. */
+        }
+        setInviteLink(link);
+        await refresh();
+      }
+      await copy(link);
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
   function switchDemo() {
@@ -389,8 +478,16 @@ export default function PlanApp({ id }: { id: string }) {
       "CONTRIBUTIONS",
       a.name + ": " + money(result?.contributionsCents[0] || 0),
       b.name + ": " + money(result?.contributionsCents[1] || 0),
-      "Remaining for " + a.name + ": " + money(result?.remainingCents[0] || 0),
-      "Remaining for " + b.name + ": " + money(result?.remainingCents[1] || 0),
+      "Remaining for " +
+        a.name +
+        ": " +
+        money(result?.remainingCents[0] || 0) +
+        (a.refined === false ? " (personal bills not included)" : ""),
+      "Remaining for " +
+        b.name +
+        ": " +
+        money(result?.remainingCents[1] || 0) +
+        (b.refined === false ? " (personal bills not included)" : ""),
       "Method: " + state.plan.method,
       "Bill payer: " + (state.plan.payer === "A" ? a.name : b.name),
       "Transfer day: " + state.plan.payday + " of each month",
@@ -592,7 +689,7 @@ export default function PlanApp({ id }: { id: string }) {
               <p className="workspace-intro">
                 {
                   [
-                    "Three numbers to start. See what you can put toward your shared home.",
+                    "Add your income. Personal bills, saving preferences, and notes are optional.",
                     "Put a number on your shared life. Keep personal expenses separate.",
                     "There’s more than one way to share. See what each option leaves for both of you.",
                     "The small details make a plan you can actually follow.",
@@ -603,7 +700,7 @@ export default function PlanApp({ id }: { id: string }) {
             </div>
             <span className="chapter-number">0{step + 1}</span>
           </div>
-          {!state.joined && state.role === "A" && (
+          {!state.joined && state.role === "A" && !state.estimate && (
             <div className="invite-strip">
               <span className="section-icon small">
                 <Users size={18} />
@@ -615,7 +712,7 @@ export default function PlanApp({ id }: { id: string }) {
               <button
                 className="button secondary compact"
                 disabled={busy}
-                onClick={invite}
+                onClick={() => invite(false)}
               >
                 <Copy size={15} /> Copy invitation
               </button>
@@ -627,7 +724,10 @@ export default function PlanApp({ id }: { id: string }) {
               busy={busy}
               onSave={async (profile) => {
                 const result = await mutate("profile", { profile });
-                if (result) setStep(1);
+                if (result) {
+                  clearDraft("fm:profile-draft:" + id + ":" + state.role);
+                  setStep(2);
+                }
               }}
               onError={setError}
             />
@@ -638,45 +738,68 @@ export default function PlanApp({ id }: { id: string }) {
               busy={busy}
               onSave={async (expenses) => {
                 const result = await mutate("expenses", { expenses });
-                if (result) setStep(2);
+                if (result) {
+                  clearDraft("fm:expenses-draft:" + id + ":" + state.role);
+                  setStep(2);
+                }
               }}
               onError={setError}
             />
           )}
-          {step >= 2 && !state.bothShared && (
-            <div className="waiting-card">
-              <span className="section-icon">
-                <LockKeyhole size={28} />
-              </span>
-              <h2>A little space before you share.</h2>
-              <p>
-                Both of you need to choose to share your answers before your
-                numbers appear side by side.
-              </p>
-              <div className="waiting-people">
-                {[a, b].map((person, index) => (
-                  <div key={index}>
-                    <span className={"avatar " + (index ? "peach" : "")}>
-                      {person.name?.[0]}
-                    </span>
-                    <strong>{person.name}</strong>
-                    <span className="pill">
-                      {person.shared ? "Ready to share" : "Taking a moment"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <button className="button secondary" onClick={() => setStep(0)}>
-                Review my answers <ArrowRight size={16} />
-              </button>
-            </div>
+          {step === 2 && state.estimate && (
+            <SavedPreview
+              key={state.estimate.partnerIncome}
+              income={state.self.income}
+              total={total}
+              names={[state.self.name, state.partner.name]}
+              estimate={state.estimate}
+              busy={busy}
+              joined={state.joined}
+              shared={state.self.shared}
+              onSave={(estimate) => mutate("estimate", { estimate })}
+              onInvite={() => invite(true)}
+              onProfile={() => setStep(0)}
+              onExpenses={() => setStep(1)}
+              onError={setError}
+            />
           )}
+          {step >= 2 &&
+            !state.bothShared &&
+            !(step === 2 && state.estimate) && (
+              <div className="waiting-card">
+                <span className="section-icon">
+                  <LockKeyhole size={28} />
+                </span>
+                <h2>A little space before you share.</h2>
+                <p>
+                  Both of you need to choose to share your answers before your
+                  numbers appear side by side.
+                </p>
+                <div className="waiting-people">
+                  {[a, b].map((person, index) => (
+                    <div key={index}>
+                      <span className={"avatar " + (index ? "peach" : "")}>
+                        {person.name?.[0]}
+                      </span>
+                      <strong>{person.name}</strong>
+                      <span className="pill">
+                        {person.shared ? "Ready to share" : "Taking a moment"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button className="button secondary" onClick={() => setStep(0)}>
+                  Review my answers <ArrowRight size={16} />
+                </button>
+              </div>
+            )}
           {step === 2 && state.bothShared && (
             <Balance
               state={state}
               busy={busy}
               guideBusy={guideBusy}
               onGuide={guide}
+              onRefine={() => setStep(0)}
               onSave={async (plan) => {
                 const result = await mutate("plan", { plan });
                 if (result) setStep(3);
@@ -765,12 +888,14 @@ function MoneyField({
   name,
   value,
   hint,
+  disabled = false,
   onChange,
 }: {
   label: string;
   name: string;
   value: string;
   hint?: string;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
@@ -788,7 +913,8 @@ function MoneyField({
           inputMode="decimal"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          required
+          required={!disabled}
+          disabled={disabled}
         />
         <span>/ month</span>
       </span>
@@ -807,211 +933,215 @@ function ProfileForm({
   onSave: (profile: unknown) => Promise<void>;
   onError: (error: string) => void;
 }) {
-  const [part, setPart] = useState(0);
-  const [income, setIncome] = useState(dollars(state.self.income)),
-    [personal, setPersonal] = useState(dollars(state.self.personal)),
-    [reserve, setReserve] = useState(dollars(state.self.reserve));
-  const heading = useRef<HTMLHeadingElement>(null);
-  let available: number | null = null;
-  try {
-    available = parseMoney(income) - parseMoney(personal) - parseMoney(reserve);
-  } catch {
-    /* Wait for a valid amount. */
+  const key = "fm:profile-draft:" + state.id + ":" + state.role;
+  const base = useRef(JSON.stringify(state.self));
+  const defaults = {
+    name: /^Partner [12]$/.test(state.self.name) ? "" : state.self.name,
+    income: state.self.submitted ? dollars(state.self.income) : "",
+    personal: dollars(state.self.personal),
+    reserve: dollars(state.self.reserve),
+    refined: state.self.refined !== false,
+    priority: state.self.priority,
+    concern: state.self.concern,
+  };
+  const [draft, setDraft] = useState(() => {
+    const saved = readDraft<{ base: string; values: typeof defaults }>(key);
+    return saved?.base === base.current &&
+      saved.values &&
+      ["name", "income", "personal", "reserve", "priority", "concern"].every(
+        (field) =>
+          typeof saved.values[field as keyof typeof defaults] === "string",
+      ) &&
+      typeof saved.values.refined === "boolean"
+      ? saved.values
+      : defaults;
+  });
+  const [persisted, setPersisted] = useState(true);
+  useEffect(() => {
+    setPersisted(writeDraft(key, { base: base.current, values: draft }));
+  }, [draft, key]);
+  function change(value: Partial<typeof defaults>) {
+    setDraft((current) => ({ ...current, ...value }));
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (part === 0) {
-      setPart(1);
-      requestAnimationFrame(() => heading.current?.focus());
-      return;
-    }
-    const f = new FormData(event.currentTarget);
+    const share =
+      (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") !==
+      "private";
     try {
       await onSave({
-        name: String(f.get("name")),
-        income: parseMoney(income),
-        personal: parseMoney(personal),
-        reserve: parseMoney(reserve),
-        priority: String(f.get("priority")),
-        concern: String(f.get("concern")),
-        shared: f.get("shared") === "on",
+        name: draft.name.trim() || state.self.name,
+        income: parseMoney(draft.income),
+        personal: draft.refined ? parseMoney(draft.personal) : 0,
+        reserve: draft.refined ? parseMoney(draft.reserve) : 0,
+        refined: draft.refined,
+        priority: draft.priority,
+        concern: draft.concern,
+        shared: share,
       });
     } catch (error) {
       onError((error as Error).message);
     }
   }
+  const choices = [
+    "A little breathing room",
+    "A plan I can keep up with",
+    "Keeping some independence",
+    "Saving for our next step",
+    "Less money admin",
+  ];
   return (
     <div className="profile-layout">
-      <form className="surface form-surface profile-form" onSubmit={submit}>
-        <div className="profile-progress">
-          <span className={part === 0 ? "current" : "complete"}>
-            <i>{part === 0 ? "1" : <Check size={13} />}</i>Your numbers
-          </span>
-          <span className={part === 1 ? "current" : ""}>
-            <i>2</i>What matters
-          </span>
-        </div>
+      <form className="surface form-surface simple-profile" onSubmit={submit}>
         <div className="panel-heading">
+          <span className="avatar">{state.role === "A" ? "1" : "2"}</span>
           <div>
-            <h3 ref={heading} tabIndex={-1}>
-              {part === 0
-                ? "Make a little room for you."
-                : "Bring your perspective."}
-            </h3>
-            <p>
-              {part === 0
-                ? "Monthly amounts after tax. Estimates are okay."
-                : "A priority, an optional note, and your choice to share."}
-            </p>
+            <h3>Your side of the plan.</h3>
+            <p>Start with your take-home income. Add detail when it helps.</p>
           </div>
         </div>
-        <fieldset hidden={part !== 0}>
-          <MoneyField
-            name="income"
-            label="Monthly take-home income"
-            value={income}
-            onChange={setIncome}
-            hint="For variable income, use a month you feel comfortable planning around."
+        <MoneyField
+          name="income"
+          label="Your monthly take-home income"
+          value={draft.income}
+          onChange={(income) => change({ income })}
+          hint="After tax. An estimate is okay; you can update it later."
+        />
+        <label>
+          Your first name <span className="optional">Optional</span>
+          <input
+            name="name"
+            autoComplete="given-name"
+            maxLength={60}
+            value={draft.name}
+            onChange={(event) => change({ name: event.target.value })}
+            placeholder={state.self.name}
           />
+        </label>
+        <details
+          className="profile-extra"
+          open={draft.refined}
+          onToggle={(event) => {
+            if (event.currentTarget.open !== draft.refined)
+              change({ refined: event.currentTarget.open });
+          }}
+        >
+          <summary>
+            Include personal bills & savings <span>Optional</span>
+          </summary>
+          <p>
+            Use these to check what remains after all your costs. Close this
+            section to compare shared contributions only.
+          </p>
           <MoneyField
+            disabled={!draft.refined}
             name="personal"
-            label="Personal bills & commitments"
-            value={personal}
-            onChange={setPersonal}
-            hint="Debt payments, transport, or family support. Shared rent and groceries come next."
+            label="Personal monthly bills"
+            value={draft.personal}
+            onChange={(personal) => change({ personal })}
+            hint="Your own debt payments, transport, or other commitments."
           />
           <MoneyField
+            disabled={!draft.refined}
             name="reserve"
             label="Money you want to keep"
-            value={reserve}
-            onChange={setReserve}
+            value={draft.reserve}
+            onChange={(reserve) => change({ reserve })}
             hint="For your own spending and saving, after all bills are paid."
           />
-        </fieldset>
-        <fieldset hidden={part !== 1}>
+        </details>
+        <details className="profile-extra" open={undefined}>
+          <summary>
+            Add what matters to you <span>Optional</span>
+          </summary>
+          <p>
+            Choose a priority or leave a note to help start the conversation.
+          </p>
+          <div
+            className="priority-choices"
+            role="group"
+            aria-label="Your priority"
+          >
+            {choices.map((choice) => (
+              <button
+                type="button"
+                key={choice}
+                aria-pressed={draft.priority === choice}
+                onClick={() =>
+                  change({ priority: draft.priority === choice ? "" : choice })
+                }
+              >
+                {choice}
+              </button>
+            ))}
+          </div>
           <label>
-            What matters most right now?
-            <select name="priority" defaultValue={state.self.priority}>
-              <option>A little breathing room</option>
-              <option>A plan I can keep up with</option>
-              <option>Keeping some independence</option>
-              <option>Saving for our next step</option>
-              <option>Less money admin</option>
-            </select>
-          </label>
-          <label>
-            One thing you’d like {state.partner.name} to understand{" "}
-            <span className="optional">Optional</span>
+            Anything you’d like your partner to understand?
             <textarea
               name="concern"
               maxLength={800}
-              defaultValue={state.self.concern}
-              placeholder="I’m excited about living together, but I want to keep building my savings."
               rows={3}
+              value={draft.concern}
+              onChange={(event) => change({ concern: event.target.value })}
+              placeholder="I’d like us to keep some independence while sharing a home."
             />
           </label>
-          <details className="name-details">
-            <summary>Your name: {state.self.name}</summary>
-            <label>
-              What should we call you?
-              <input
-                name="name"
-                defaultValue={state.self.name}
-                maxLength={60}
-                required
-              />
-            </label>
-          </details>
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              name="shared"
-              defaultChecked={state.self.shared}
-            />
-            <span>
-              I’m ready to share my numbers, priority, and note with{" "}
-              {state.partner.name}.
-              <small>
-                Visible only once you both choose to share. You can turn sharing
-                off later.
-              </small>
-            </span>
-          </label>
-        </fieldset>
-        <div className="mobile-budget">
-          <span>
-            Room for shared costs
-            <strong>{available === null ? "—" : money(available)}</strong>
-          </span>
+        </details>
+        <div className="sharing-choice">
+          <LockKeyhole size={18} />
           <p>
-            After personal bills and the money you want to keep. A starting
-            point, not an agreed contribution.
+            <strong>You choose when to share.</strong> Sharing makes your saved
+            income, included personal details, priority, and note visible to{" "}
+            {state.partner.name} once you both choose to share.
           </p>
         </div>
-        <div className="form-bottom">
-          {part === 1 ? (
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => setPart(0)}
-            >
-              <ChevronLeft size={16} /> Your numbers
-            </button>
-          ) : (
-            <span className="small-text muted">
-              <LockKeyhole size={13} /> Changes stay here until you save.
-            </span>
-          )}
-          <button className="button primary" disabled={busy}>
-            {busy ? "Saving…" : part === 0 ? "Continue" : "Save & continue"}
-            <ArrowRight size={16} />
+        <div className="profile-submit">
+          <button
+            className="button primary"
+            type="submit"
+            value="share"
+            disabled={busy}
+          >
+            {busy ? "Saving…" : "Share & compare"}
+            <ArrowRight size={17} />
+          </button>
+          <button
+            className="text-button"
+            type="submit"
+            value="private"
+            disabled={busy}
+          >
+            Save privately
           </button>
         </div>
         <p className="fine-print">
-          {part === 0
-            ? "Your answers are saved after the next step."
-            : "Leave the box unchecked to save privately and share later."}
+          {persisted
+            ? "Edits are saved in this browser until you choose one of the actions above."
+            : "Browser storage is unavailable. Save before leaving this page."}
         </p>
       </form>
-      <aside className="personal-preview" aria-label="Your budget preview">
-        <div className="preview-top">
-          <span className="avatar">{state.self.name[0]}</span>
-          <span className="overline">YOUR FIRST LOOK</span>
-          <LockKeyhole size={17} />
-        </div>
+      <aside className="personal-preview profile-reassurance">
+        <span className="little-flower">✳</span>
         <h3>
-          Room for your
+          Your answer
           <br />
-          shared home.
+          is yours to give.
         </h3>
-        <p className="preview-amount" aria-live="polite">
-          {available === null ? "—" : money(available)}
+        <p>
+          Your partner’s estimate never becomes your answer. Add the amount you
+          feel comfortable planning around.
         </p>
-        <p className="preview-description">
-          {available !== null && available < 0
-            ? "Your personal bills and the amount you want to keep already exceed your income."
-            : "Left for shared costs while keeping the amount you chose for yourself."}
-        </p>
-        <dl>
-          <div>
-            <dt>Take-home income</dt>
-            <dd>{money(Math.round((Number(income) || 0) * 100))}</dd>
-          </div>
-          <div>
-            <dt>Personal commitments</dt>
-            <dd>− {money(Math.round((Number(personal) || 0) * 100))}</dd>
-          </div>
-          <div>
-            <dt>Keep for yourself</dt>
-            <dd>− {money(Math.round((Number(reserve) || 0) * 100))}</dd>
-          </div>
-        </dl>
         <div className="preview-note">
-          <Leaf size={18} />
-          <p>
-            A starting point, not a contribution you’ve agreed to. Next, you’ll
-            add your shared costs.
-          </p>
+          <Check size={17} />
+          <p>Only your own answers can be saved from this link.</p>
+        </div>
+        <div className="preview-note">
+          <Check size={17} />
+          <p>You can come back and refine your personal costs later.</p>
+        </div>
+        <div className="preview-note">
+          <Check size={17} />
+          <p>Sharing your numbers doesn’t mean agreeing to a split.</p>
         </div>
       </aside>
     </div>
@@ -1028,10 +1158,25 @@ function ExpensesForm({
   onSave: (expenses: Expense[]) => Promise<void>;
   onError: (message: string) => void;
 }) {
-  const [rows, setRows] = useState(
-    state.expenses.map((row) => ({ ...row, value: dollars(row.amount) })),
-  );
+  const draftKey = "fm:expenses-draft:" + state.id + ":" + state.role;
   const originalExpenses = useRef(JSON.stringify(state.expenses));
+  const [rows, setRows] = useState(() => {
+    const saved = readDraft<{
+      base: string;
+      rows: (Expense & { value: string })[];
+    }>(draftKey);
+    return saved?.base === originalExpenses.current &&
+      Array.isArray(saved.rows) &&
+      saved.rows.length > 0 &&
+      saved.rows.every(
+        (row) => typeof row.value === "string" && typeof row.label === "string",
+      )
+      ? saved.rows
+      : state.expenses.map((row) => ({ ...row, value: dollars(row.amount) }));
+  });
+  useEffect(() => {
+    writeDraft(draftKey, { base: originalExpenses.current, rows });
+  }, [rows, draftKey]);
   const total = rows.reduce((sum, row) => sum + (Number(row.value) || 0), 0);
   function change(id: string, key: string, value: string) {
     setRows(
@@ -1151,6 +1296,7 @@ function Balance({
   busy,
   guideBusy,
   onGuide,
+  onRefine,
   onSave,
   onError,
 }: {
@@ -1158,6 +1304,7 @@ function Balance({
   busy: boolean;
   guideBusy: boolean;
   onGuide: (plan: Plan) => Promise<void>;
+  onRefine: () => void;
   onSave: (plan: Plan) => Promise<void>;
   onError: (message: string) => void;
 }) {
@@ -1176,8 +1323,12 @@ function Balance({
     calculateBudget({
       sharedCents: total,
       incomeCents: [a.income, b.income],
-      personalCommitmentsCents: [a.personal, b.personal],
-      minimumRemainingCents: [a.reserve, b.reserve],
+      personalCommitmentsCents: [a, b].map((person) =>
+        person.refined === false ? 0 : person.personal,
+      ),
+      minimumRemainingCents: [a, b].map((person) =>
+        person.refined === false ? 0 : person.reserve,
+      ),
       method: choice,
       customContributionsCents:
         choice === "custom"
@@ -1310,9 +1461,13 @@ function Balance({
               <p className="overline">
                 {names[method].toUpperCase()} · MONTHLY RESULT
               </p>
-              <h2>What stays yours.</h2>
+              <h2>
+                {[a, b].some((person) => person.refined === false)
+                  ? "After your shared costs."
+                  : "What stays yours."}
+              </h2>
             </div>
-            <span>After personal bills & shared costs</span>
+            <span>After the costs you’ve included</span>
           </div>
           <div className="result-people">
             {[a, b].map((person, i) => {
@@ -1335,7 +1490,11 @@ function Balance({
                   </div>
                   <p className="remaining-value">
                     {money(selected!.remainingCents[i])}
-                    <span>left each month</span>
+                    <span>
+                      {person.refined === false
+                        ? "after shared costs"
+                        : "left after your included bills"}
+                    </span>
                   </p>
                   <p className="split-difference">
                     {change === 0
@@ -1351,7 +1510,11 @@ function Balance({
                     </div>
                     <div>
                       <dt>Personal bills</dt>
-                      <dd>− {money(person.personal)}</dd>
+                      <dd>
+                        {person.refined === false
+                          ? "Not added"
+                          : "− " + money(person.personal)}
+                      </dd>
                     </div>
                     <div>
                       <dt>Shared contribution</dt>
@@ -1364,25 +1527,45 @@ function Balance({
                       (cushion < 0 ? "below-preference" : "")
                     }
                   >
-                    {cushion >= 0 ? (
+                    {person.refined !== false && cushion >= 0 ? (
                       <Check size={17} />
                     ) : (
                       <CircleHelp size={17} />
                     )}
                     <span>
-                      {cushion >= 0
-                        ? "Keeps your " + money(person.reserve) + " preference"
-                        : money(-cushion) +
-                          " below the " +
-                          money(person.reserve) +
-                          " you want to keep"}
+                      {person.refined === false
+                        ? selected!.remainingCents[i] < 0
+                          ? "Shared contribution exceeds income"
+                          : "Personal bills & savings not added yet"
+                        : cushion >= 0
+                          ? "Keeps your " +
+                            money(person.reserve) +
+                            " preference"
+                          : money(-cushion) +
+                            " below the " +
+                            money(person.reserve) +
+                            " you want to keep"}
                     </span>
                   </div>
                 </article>
               );
             })}
           </div>
-          {selected.minimumRemainingMet.includes(false) && (
+          {state.self.refined === false && (
+            <div className="soft-note">
+              <CircleHelp size={19} />
+              <p>
+                Your personal costs aren’t included yet.{" "}
+                <button className="text-button" onClick={onRefine}>
+                  Add your personal bills & savings
+                </button>
+              </p>
+            </div>
+          )}
+          {[a, b].some(
+            (person, index) =>
+              person.refined !== false && !selected!.minimumRemainingMet[index],
+          ) && (
             <div className="soft-note amber">
               <CircleHelp size={19} />
               <p>
@@ -1425,7 +1608,7 @@ function Balance({
               </span>
               <div>
                 <span className="overline">{person.name}’S PRIORITY</span>
-                <strong>{person.priority}</strong>
+                <strong>{person.priority || "No priority added yet"}</strong>
                 {person.concern && <p>“{person.concern}”</p>}
               </div>
             </div>
@@ -1532,8 +1715,10 @@ function Agreement({
           {a.name} & {b.name}
         </h2>
         <p className="muted">
-          Moving in {fullDate(state.moveDate)} · Plan version{" "}
-          {state.planVersion}
+          {state.moveDate
+            ? "Moving in " + fullDate(state.moveDate) + " · "
+            : ""}
+          Plan version {state.planVersion}
         </p>
         <div className="agreement-amounts">
           {[a, b].map((person, i) => (
@@ -1547,8 +1732,10 @@ function Agreement({
               <small>per month</small>
               {state.calculation && (
                 <p>
-                  {money(state.calculation.remainingCents[i])} stays theirs
-                  after bills
+                  {money(state.calculation.remainingCents[i])}{" "}
+                  {person.refined === false
+                    ? "after shared costs; personal bills not included"
+                    : "after their included bills"}
                 </p>
               )}
             </div>

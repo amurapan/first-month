@@ -2,7 +2,7 @@
 
 A shared spending plan for couples moving in together.
 
-[Open First Month](https://first-month-amurapan.generousbench1.chatgpt.site) — no login required. Choose **Try an example** to explore both roles with fictional data, or create a plan and invite your partner.
+[Open First Month](https://first-month-amurapan.generousbench1.chatgpt.site) — no login required. Choose **Explore a sample plan** to explore both roles with fictional data, or create a plan and invite your partner.
 
 ## Product
 
@@ -13,7 +13,9 @@ A shared spending plan for couples moving in together.
 - Plan download, calendar reminder, and persisted monthly check-ins.
 - A clearly labelled fictional demo with role switching.
 - Optional conversation guide generated from the information both people shared.
-- Two short personal steps with a live budget preview, and an explicit comparison against equal contributions.
+- A two-step starting wizard: incomes, shared costs, then an instant comparison before saving a room.
+- Optional names, date, itemized costs, personal bills, and priorities; browser drafts resume after a refresh.
+- A private partner-income estimate that is replaced by the partner’s own answer after mutual sharing.
 - A complete printable agreement, including the transfer routine and review date.
 
 The conversation guide uses Groq with server-side `GROQ_API_KEY` and optional `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`). An existing OpenAI connection can still be used with `OPENAI_API_KEY` and `OPENAI_MODEL` when no Groq key is set. With neither configured, the guide reports that it is unavailable; it never returns a canned substitute. Billing is not implemented.
@@ -48,12 +50,13 @@ npm --prefix web exec -- tsc --noEmit
 npm run check:api
 ```
 
-The domain tests cover exact-cent allocations and agreement transitions. The API check creates fictional local records and verifies role authorization, private-field redaction, invitation reuse, stale writes, both approvals, and persisted check-ins. Set `TEST_BASE_URL` explicitly to test another environment.
+The domain tests cover exact-cent allocations, unknown versus zero income, incomplete personal budgets, and agreement transitions. The API check creates fictional local records and verifies role authorization, private-field redaction, invitation reuse, stale writes, both approvals, persisted check-ins, and isolation of preliminary estimates from actual partner answers. Set `TEST_BASE_URL` explicitly to test another environment.
 
 ## Layout
 
 - `web/app/`: pages and HTTP endpoints
-- `web/components/plan-app.tsx`: the five-step shared-plan flow
+- `web/components/start-wizard.tsx`: the two-step local starting calculation
+- `web/components/plan-app.tsx`: the shared-plan workspace
 - `web/lib/room.ts`: authorization, input validation, storage, and data visibility
 - `web/lib/domain/`: deterministic budget and approval logic
 - `web/db/` and `web/drizzle/`: D1 schema and migrations
@@ -62,6 +65,10 @@ The domain tests cover exact-cent allocations and agreement transitions. The API
 ## Access and storage
 
 Room access uses random 256-bit personal tokens, stored as hashes on the server. Tokens in links are URL fragments, and API requests send them as authorization headers. Anyone with a personal link can act as that role; save it privately. There is no account recovery. Updates use optimistic concurrency checks, and accepting a stale plan is rejected.
+
+The starting wizard and unsaved profile/expense edits are stored in this browser, including amounts entered. **Clear draft** removes the starting wizard draft. Saving a room sends the plan to the server and clears that wizard draft. Saved personal links and the last workspace section are also kept locally. Use a private browser profile on shared devices.
+
+Estimated partner income is visible only to its author and never fills the partner’s actual profile. Missing personal bills and savings are labelled as not added, rather than treated as a verified zero-cost budget.
 
 Personal commitments change the remaining-money calculation, not the income-based split itself. The application shows the consequences of a proposed arrangement without deciding whether it is fair.
 

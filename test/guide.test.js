@@ -124,3 +124,26 @@ test("request disables storage and keeps user data separate from instructions", 
   });
   assert.equal(text, "Three questions");
 });
+
+test("missing personal costs are neither a failed nor a satisfied savings preference", () => {
+  const guide = formatGuide(
+    {
+      partners: [
+        { name: "Alex", priority: "", preferenceMet: null },
+        { name: "Jordan", priority: "Savings", preferenceMet: true },
+      ],
+    },
+    JSON.stringify({
+      questions: [
+        "What should we add?",
+        "Which costs are shared?",
+        "When should we review?",
+      ],
+      opener: "Let’s discuss the costs we have not included.",
+    }),
+  );
+  assert.match(guide, /not included/i);
+  assert.ok(!guide.includes("less left than"));
+  assert.ok(!guide.includes("meets both"));
+  assert.match(guide, /no priority added yet/);
+});
