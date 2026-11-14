@@ -13,8 +13,10 @@ A shared spending plan for couples moving in together.
 - Plan download, calendar reminder, and persisted monthly check-ins.
 - A clearly labelled fictional demo with role switching.
 - Optional conversation guide generated from the information both people shared.
+- Two short personal steps with a live budget preview, and an explicit comparison against equal contributions.
+- A complete printable agreement, including the transfer routine and review date.
 
-The conversation guide requires server-side `OPENAI_API_KEY` and `OPENAI_MODEL`. It reports that it is unavailable until configured; it does not return a canned substitute. Billing is not implemented.
+The conversation guide uses Groq with server-side `GROQ_API_KEY` and optional `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`). An existing OpenAI connection can still be used with `OPENAI_API_KEY` and `OPENAI_MODEL` when no Groq key is set. With neither configured, the guide reports that it is unavailable; it never returns a canned substitute. Billing is not implemented.
 
 ## Local development
 
@@ -63,7 +65,9 @@ Room access uses random 256-bit personal tokens, stored as hashes on the server.
 
 Personal commitments change the remaining-money calculation, not the income-based split itself. The application shows the consequences of a proposed arrangement without deciding whether it is fair.
 
-The model endpoint only uses mutually shared information. It has per-plan limits, a global daily request cap, and a timeout. The calculation itself does not depend on a model.
+The model endpoint only uses mutually shared names, priorities, notes, expense categories, the chosen split method, and whether each person's preference is met. Structured income, expense amounts, and remaining balances are not sent to the provider; free-text notes are transmitted as entered. The guide is an aid for starting a conversation; all arithmetic is deterministic and shown separately. Guide requests have an eight-attempt limit per room, a global 100-attempt daily cap, a 45-second timeout, and caching for the current plan version. The model returns three questions and an opening sentence as validated JSON. Budget context comes from deterministic calculations; model reasoning is never displayed. Changes invalidate the guide and both approvals; saving unchanged terms preserves them.
+
+To print or save a PDF, open the agreement and choose **Print / save PDF**. The printable document contains the shared expenses, contributions, remaining balances, transfer rule, purchase threshold, next review, and each person's approval state.
 
 ## Research status
 
