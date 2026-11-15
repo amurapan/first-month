@@ -21,7 +21,9 @@ A shared home for the money decisions couples make when moving in together — a
 - A household dashboard with next steps based on each person’s actual progress and transfers awaiting receipt confirmation.
 - Monthly expense, refund, and reimbursement records with a frozen split, planned-versus-recorded comparisons, two-person confirmation, and version history.
 - Sender-reported transfers count only after the receiver confirms. Correcting a confirmed month requires both people and retains previously confirmed settlements.
-- Quick expense entry with saved drafts, category shortcuts, search, CSV and statement exports, and printing.
+- Separate Activity and Review & settle views, with quick expense entry, visible saved-entry feedback, reusable category defaults, saved drafts, search, CSV and statement exports, and printing.
+- Receipt reports are surfaced before closing a month; each person reviews the current version and confirms separately.
+- Prepare the next calendar month using current budget settings or the previous confirmed month’s categories and frozen split. Payments, approvals, history, and unsettled balances are never copied. Future-dated payments are rejected.
 - Decision starters for furniture, trips, and recurring costs; amounts always come from the user.
 - Purchase and recurring-cost decisions with private perspectives, calculated timing/price/split options, and two separate confirmations.
 - A combined commitment ledger: accepted purchases and savings goals stay visible when evaluating the next decision.
@@ -74,9 +76,10 @@ npm run check:api
 npm run check:household
 npm run check:month
 npm run check:onboarding
+node web/scripts/check-month-continuity.mjs
 ```
 
-The domain tests cover exact-cent allocations and savings schedules, unknown versus zero income, incomplete personal budgets, weekly boundaries, private perspectives, and agreement transitions. The API check creates fictional local records and verifies role authorization, private-field redaction, invitation reuse, stale writes, both approvals, persisted check-ins, and isolation of preliminary estimates from actual partner answers. The household check also verifies cross-household isolation, purchase approvals, per-role saving progress, weekly actions, immutable history, atomic recurring-cost application, key rotation, and deletion. The monthly check additionally covers refunds, recorded payers, receipt confirmations, idempotent additions, fixed historical ratios, concurrent-edit rejection, two-person corrections, and closed history. The onboarding check covers minimal invitation previews, private feedback, repeat submissions, rate limits, author-only export, and household deletion. The checks remove their own fictional test rooms. Set `TEST_BASE_URL` explicitly to test another environment.
+The domain tests cover exact-cent allocations and savings schedules, unknown versus zero income, incomplete personal budgets, weekly boundaries, private perspectives, and agreement transitions. The API check creates fictional local records and verifies role authorization, private-field redaction, invitation reuse, stale writes, both approvals, persisted check-ins, and isolation of preliminary estimates from actual partner answers. The household check also verifies cross-household isolation, purchase approvals, per-role saving progress, weekly actions, immutable history, atomic recurring-cost application, key rotation, and deletion. The monthly check additionally covers refunds, recorded payers, receipt confirmations, idempotent additions, fixed historical ratios, concurrent-edit rejection, two-person corrections, and closed history. The onboarding check covers minimal invitation previews, private feedback, repeat submissions, rate limits, author-only export, and household deletion. The continuity check covers preparing the next month, copying only confirmed settings, separate unsettled balances, stale source revisions, calendar boundaries, and sharing restrictions. The checks remove their own fictional test rooms. Set `TEST_BASE_URL` explicitly to test another environment.
 
 ## Layout
 

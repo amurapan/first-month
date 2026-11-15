@@ -7,6 +7,8 @@ export type MonthBaseline = {
   method: "equal" | "proportional" | "custom";
   weights: number[];
   sourceConfirmed: boolean;
+  sourcePeriod?: string;
+  sourceMonthVersion?: number;
 };
 export type MonthEntry = {
   id: string;

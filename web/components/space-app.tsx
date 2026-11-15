@@ -152,6 +152,7 @@ export default function SpaceApp({ id }: { id: string }) {
     const url = new URL(location.href);
     url.searchParams.set("tab", next);
     url.searchParams.delete("section");
+    url.searchParams.delete("monthView");
     for (const p of ["entry", "entryId", "category", "original"])
       url.searchParams.delete(p);
     if (next === "months")
@@ -215,7 +216,10 @@ export default function SpaceApp({ id }: { id: string }) {
       }
       const latest = data.householdDecisions ? data : await refresh();
       if (latest) setState(latest);
-      setToast("Saved to your shared space");
+      if (!(
+        path === "/months" && ["add", "edit"].includes(String(payload.action))
+      ))
+        setToast("Saved to your shared space");
       return latest as SpaceState;
     } catch (e) {
       setError((e as Error).message);

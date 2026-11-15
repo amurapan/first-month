@@ -1,7 +1,7 @@
 "use client";
 import SharingStatus from "./sharing-status";
 import { AnimatedMoney } from "@/components/motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowRight,
@@ -27,6 +27,7 @@ import {
   monthTitle,
   monthTotals,
   refundable,
+  shiftMonth,
 } from "@/lib/domain/month.js";
 import { inputCents } from "@/lib/domain/preview.js";
 import {
@@ -223,7 +224,9 @@ export default function MonthBook({
   const [period, setPeriod] = useState(() => {
     if (typeof location === "undefined") return currentMonth();
     const p = new URL(location.href).searchParams.get("month");
-    return p && /^\d{4}-(0[1-9]|1[0-2])$/.test(p) && p <= currentMonth()
+    return p &&
+      /^\d{4}-(0[1-9]|1[0-2])$/.test(p) &&
+      p <= shiftMonth(currentMonth())
       ? p
       : currentMonth();
   });
@@ -247,13 +250,122 @@ export default function MonthBook({
     }),
     [search, setSearch] = useState(""),
     [removing, setRemoving] = useState(""),
-    [startSplit, setStartSplit] = useState("plan");
+    [startSplit, setStartSplit] = useState("previous");
+  const [view, updateView] = useState<"activity" | "review">(() => {
+    if (typeof location === "undefined") return "activity";
+    const explicit = new URL(location.href).searchParams.get("monthView");
+    if (explicit === "activity" || explicit === "review") return explicit;
+    const saved = state.months.find((x) => x.period === period);
+    return saved?.status === "agreed" ||
+      saved?.approvals[state.role === "A" ? "B" : "A"]
+      ? "review"
+      : "activity";
+  });
+  const [savedEntry, setSavedEntry] = useState<{
+    id: string;
+    edited: boolean;
+  } | null>(null);
+  const [reviewedVersion, setReviewedVersion] = useState<number | null>(null);
+  const savedNotice = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (savedEntry)
+      requestAnimationFrame(() => {
+        savedNotice.current?.scrollIntoView({
+          block: "nearest",
+          behavior: "instant",
+        });
+        savedNotice.current?.focus({ preventScroll: true });
+      });
+  }, [savedEntry]);
+  useEffect(() => {
+    let closed: HTMLDetailsElement[] = [];
+    const before = () => {
+      closed = Array.from(
+        document.querySelectorAll<HTMLDetailsElement>(
+          ".month-balance-math:not([open])",
+        ),
+      );
+      closed.forEach((el) => {
+        el.open = true;
+      });
+    };
+    const after = () =>
+      closed.forEach((el) => {
+        el.open = false;
+      });
+    window.addEventListener("beforeprint", before);
+    window.addEventListener("afterprint", after);
+    return () => {
+      window.removeEventListener("beforeprint", before);
+      window.removeEventListener("afterprint", after);
+    };
+  }, []);
+  useEffect(() => {
+    const restore = () => {
+      const url = new URL(location.href);
+      if (url.searchParams.get("tab") !== "months") return;
+      const raw = url.searchParams.get("month");
+      const restoredPeriod =
+        raw &&
+        /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) &&
+        raw <= shiftMonth(currentMonth())
+          ? raw
+          : currentMonth();
+      const record = state.months.find((m) => m.period === restoredPeriod);
+      const savedView = url.searchParams.get("monthView");
+      setPeriod(restoredPeriod);
+      updateView(
+        savedView === "activity" || savedView === "review"
+          ? savedView
+          : record?.status === "agreed" ||
+              record?.approvals[state.role === "A" ? "B" : "A"]
+            ? "review"
+            : "activity",
+      );
+      const kind = url.searchParams.get("entry");
+      const entry =
+        kind === "edit"
+          ? record?.entries.find(
+              (e) => e.id === url.searchParams.get("entryId"),
+            )
+          : null;
+      updateEditor(
+        entry
+          ? { kind: entry.kind, entry }
+          : kind && ["expense", "refund", "transfer"].includes(kind)
+            ? {
+                kind: kind as Editor["kind"],
+                categoryId: url.searchParams.get("category") || undefined,
+                originalId: url.searchParams.get("original") || undefined,
+              }
+            : null,
+      );
+      setSavedEntry(null);
+      setReviewedVersion(null);
+      setStartSplit("previous");
+      setSearch("");
+      setShown(10);
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [state.months, state.role]);
+  const setView = (next: "activity" | "review") => {
+    updateView(next);
+    const u = new URL(location.href);
+    u.searchParams.set("monthView", next);
+    if (u.href !== location.href) history.pushState({}, "", u);
+  };
   const setEditor = (next: Editor | null) => {
     updateEditor(next);
+    if (next) {
+      updateView("activity");
+      setSavedEntry(null);
+    }
     const u = new URL(location.href);
     for (const k of ["entry", "entryId", "category", "original"])
       u.searchParams.delete(k);
     if (next) {
+      u.searchParams.set("monthView", "activity");
       u.searchParams.set("entry", next.entry ? "edit" : next.kind);
       if (next.entry) u.searchParams.set("entryId", next.entry.id);
       if (next.categoryId) u.searchParams.set("category", next.categoryId);
@@ -262,7 +374,7 @@ export default function MonthBook({
     history.replaceState({}, "", u);
   };
   useEffect(() => {
-    if (editor) {
+    if (editor && view === "activity") {
       requestAnimationFrame(() => {
         const form = document.querySelector(".month-entry-form");
         form?.scrollIntoView({
@@ -276,7 +388,7 @@ export default function MonthBook({
         });
       });
     }
-  }, [editor]);
+  }, [editor, view]);
   const [shown, setShown] = useState(10);
   const month = state.months.find((x) => x.period === period),
     pair = month?.baseline.names || [
@@ -285,6 +397,7 @@ export default function MonthBook({
     ];
   const periods = [
     ...new Set([
+      shiftMonth(currentMonth()),
       ...Array.from({ length: 12 }, (_, n) => {
         const d = new Date();
         d.setUTCDate(1);
@@ -299,14 +412,48 @@ export default function MonthBook({
   const changePeriod = (next: string) => {
     setPeriod(next);
     setEditor(null);
+    setSavedEntry(null);
+    setReviewedVersion(null);
+    setStartSplit("previous");
+    const nextView =
+      state.months.find((x) => x.period === next)?.status === "agreed"
+        ? "review"
+        : "activity";
+    updateView(nextView);
     setSearch("");
     setShown(10);
     const url = new URL(location.href);
     url.searchParams.set("month", next);
-    history.replaceState({}, "", url);
+    url.searchParams.set("monthView", nextView);
+    history.pushState({}, "", url);
   };
   const run = (action: string, data: Record<string, unknown> = {}) =>
     act(action, { period, revision: month?.revision, ...data });
+  const upcoming = period > currentMonth();
+  const previous = state.months.find(
+    (m) =>
+      m.period === shiftMonth(period, -1) &&
+      m.status === "agreed" &&
+      !Object.keys(m.reopen).length,
+  );
+  const sourceChoice =
+    startSplit === "previous" && !previous ? "plan" : startSplit;
+  const startExpenses =
+    sourceChoice === "previous" && previous
+      ? previous.baseline.expenses
+      : state.expenses;
+  const defaultCategory =
+    state.months
+      .flatMap((m) => m.entries)
+      .filter(
+        (e) =>
+          e.kind === "expense" &&
+          e.author === state.role &&
+          month?.baseline.expenses.some((c) => c.id === e.categoryId),
+      )
+      .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+      ?.categoryId || "other";
+  const saved = month?.entries.find((e) => e.id === savedEntry?.id);
   if (!state.bothShared)
     return (
       <div className="spending-setup">
@@ -354,28 +501,27 @@ export default function MonthBook({
           b.createdAt.localeCompare(a.createdAt),
       ) || [];
   return (
-    <div className="month-book">
+    <div
+      className="month-book spending-book"
+      data-view={view}
+      data-upcoming={upcoming}
+    >
       <p className="month-print-title">
         {monthTitle(period)}
         {state.demo ? " · Fictional sample household" : ""}
       </p>
       <div className="life-heading heading-with-action">
         <div>
-          <p className="eyebrow">FROM THE PLAN TO REAL LIFE</p>
-          <h1>
-            Keep the month
-            <br />
-            <span>between you.</span>
-          </h1>
-          <p>
-            What you spent. What each of you covered. A clear way to settle up.
-          </p>
+          <p className="eyebrow">THE EVERYDAY PART</p>
+          <h1>Shared spending.</h1>
+          <p>Add what you paid. See where you both stand.</p>
         </div>
         <div className="month-header-actions">
-          {month?.status === "open" && (
+          {month?.status === "open" && !upcoming && !editor && (
             <button
               className="button primary"
               aria-label="Quick add expense"
+              disabled={busy}
               onClick={() => setEditor({ kind: "expense" })}
             >
               <Plus size={17} />
@@ -420,29 +566,38 @@ export default function MonthBook({
             <ReceiptText size={35} />
           </div>
           <p className="eyebrow">{monthTitle(period).toUpperCase()}</p>
-          <h2>Start with the plan you have.</h2>
+          <h2>
+            {upcoming
+              ? "Get next month ready."
+              : "Start with the plan you have."}
+          </h2>
           <p>
-            Your current categories and split become this month’s starting
-            point. Add what you actually paid as you go; nothing is marked paid
-            automatically.
+            Choose the categories and split to use. Start with an empty spending
+            record; nothing is marked paid automatically.
           </p>
           <div className="month-start-facts">
             <span>
               Planned shared costs
               <strong>
-                {money(state.expenses.reduce((n, x) => n + x.amount, 0))}
+                {money(startExpenses.reduce((n, x) => n + x.amount, 0))}
               </strong>
             </span>
             <span>
-              Categories<strong>{state.expenses.length}</strong>
+              Categories<strong>{startExpenses.length}</strong>
             </span>
           </div>
           <label>
-            How should this month’s actual costs be split?
+            Starting settings
             <select
-              value={startSplit}
+              value={sourceChoice}
               onChange={(e) => setStartSplit(e.target.value)}
             >
+              {previous && (
+                <option value="previous">
+                  Keep {monthTitle(previous.period).split(" ")[0]}’s categories
+                  and split
+                </option>
+              )}
               <option value="plan">
                 Use our current plan’s{" "}
                 {state.plan.method === "proportional"
@@ -455,7 +610,14 @@ export default function MonthBook({
             </select>
           </label>
           <p className="fine-print">
-            {state.plan.method === "custom" && startSplit === "plan"
+            {sourceChoice === "previous" && previous
+              ? "Reuses " +
+                splitLabel(previous).toLowerCase() +
+                ". Payments, confirmations and unpaid balances stay in " +
+                monthTitle(previous.period) +
+                ". "
+              : ""}
+            {state.plan.method === "custom" && sourceChoice === "plan"
               ? "Actual costs will use the ratio of your planned contributions, not the same fixed dollar amounts. "
               : ""}
             You both review the final costs and split before confirming the
@@ -464,9 +626,23 @@ export default function MonthBook({
           <button
             className="button primary"
             disabled={busy}
-            onClick={() => run("start", { split: startSplit })}
+            onClick={async () => {
+              const result = await run(
+                "start",
+                sourceChoice === "previous" && previous
+                  ? {
+                      sourcePeriod: previous.period,
+                      sourceRevision: previous.revision,
+                    }
+                  : { split: sourceChoice },
+              );
+              if (result && !upcoming) setEditor({ kind: "expense" });
+            }}
           >
-            Start {monthTitle(period).split(" ")[0]}
+            {busy
+              ? "Preparing…"
+              : (upcoming ? "Prepare " : "Start ") +
+                monthTitle(period).split(" ")[0]}
             <ArrowRight size={17} />
           </button>
           <p className="month-scope">
@@ -477,24 +653,159 @@ export default function MonthBook({
         </section>
       ) : (
         <>
-          <div className="month-summary">
-            <div className="month-summary-top">
+          <nav className="spending-views" aria-label="Spending views">
+            <button
+              aria-current={view === "activity" ? "page" : undefined}
+              onClick={() => setView("activity")}
+            >
+              <ReceiptText size={16} />
+              Activity
+            </button>
+            <button
+              aria-label="Review & settle"
+              aria-current={view === "review" ? "page" : undefined}
+              onClick={() => setView("review")}
+            >
+              <CheckCheck size={16} />
+              Review & settle
+              {month.approvals[state.role === "A" ? "B" : "A"] &&
+                !month.approvals[state.role] && (
+                  <span
+                    className="review-dot"
+                    aria-label="Your partner is ready"
+                  />
+                )}
+            </button>
+          </nav>
+          {month.status === "open" &&
+            month.approvals[state.role === "A" ? "B" : "A"] &&
+            !month.approvals[state.role] && (
+              <div className="month-review-invite">
+                <CheckCheck size={19} />
+                <div>
+                  <strong>
+                    {pair[state.role === "A" ? 1 : 0]} has checked the month.
+                  </strong>
+                  <p>
+                    Review the costs and split before adding your confirmation.
+                  </p>
+                </div>
+                <button
+                  className="text-button"
+                  onClick={() => setView("review")}
+                >
+                  Review together <ArrowRight size={15} />
+                </button>
+              </div>
+            )}
+          {upcoming && (
+            <>
+              <section className="month-prepared notice">
+                <CheckCheck size={22} />
+                <div>
+                  <h2>{monthTitle(period)} is ready.</h2>
+                  <p>
+                    Your categories and split are saved. Add actual payments
+                    from {fullDate(period + "-01")}. Nothing has been marked
+                    paid.
+                  </p>
+                  <button
+                    className="text-button"
+                    onClick={() => changePeriod(currentMonth())}
+                  >
+                    Back to this month <ArrowRight size={15} />
+                  </button>
+                </div>
+              </section>
+              <section className="prepared-settings">
+                <p className="eyebrow">STARTING SETTINGS</p>
+                <h2>
+                  {money(totals!.planned)} planned for{" "}
+                  {monthTitle(period).split(" ")[0]}
+                </h2>
+                <p>{splitLabel(month)}</p>
+                <dl>
+                  {month.baseline.expenses.map((c) => (
+                    <div key={c.id}>
+                      <dt>{c.label}</dt>
+                      <dd>{money(c.amount)}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p>
+                  Only categories and the split are carried forward. Both people
+                  will review actual costs before closing this month.
+                </p>
+              </section>
+            </>
+          )}
+          {saved && savedEntry && (
+            <div
+              className="entry-saved"
+              ref={savedNotice}
+              tabIndex={-1}
+              role="status"
+            >
+              <CheckCheck size={21} />
+              <div>
+                <strong>
+                  {saved.title} {savedEntry.edited ? "updated" : "saved"} ·{" "}
+                  {money(saved.amount)}
+                </strong>
+                <p>
+                  {saved.kind === "transfer"
+                    ? "Your partner still needs to confirm receiving it. The balance has not changed yet."
+                    : "Your totals below now include this " +
+                      (saved.kind === "refund" ? "refund." : "expense.")}
+                </p>
+              </div>
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() =>
+                  setEditor({
+                    kind: "expense",
+                  })
+                }
+              >
+                Add another <Plus size={15} />
+              </button>
+            </div>
+          )}
+          <section
+            className="month-summary spending-summary"
+            aria-label="This month at a glance"
+          >
+            <div className="spending-summary-heading">
               <span
                 className={
                   "status-tag " + (month.status === "agreed" ? "green" : "")
                 }
               >
-                {month.status === "agreed"
-                  ? "Confirmed together"
-                  : "Month in progress"}
+                {upcoming
+                  ? "Prepared · no payments yet"
+                  : month.status === "agreed"
+                    ? "Confirmed together"
+                    : "Month in progress"}
               </span>
               <span>{splitLabel(month)}</span>
             </div>
-            <div className="month-stats">
+            <div className="spending-progress">
               <div>
-                <span>Shared costs recorded</span>
+                <span>Shared spending recorded</span>
                 <strong>
                   <AnimatedMoney value={totals!.total} enter />
+                </strong>
+                <small>of {money(totals!.planned)} planned</small>
+              </div>
+              <div className={totals!.difference > 0 ? "over-budget" : ""}>
+                <span>
+                  {totals!.difference > 0
+                    ? "Above the plan"
+                    : "Left in the plan"}
+                </span>
+                <strong>
+                  <AnimatedMoney value={Math.abs(totals!.difference)} enter />
                 </strong>
                 <small>
                   {totals!.expenseCount}{" "}
@@ -502,49 +813,267 @@ export default function MonthBook({
                   refunds
                 </small>
               </div>
-              <div>
-                <span>Monthly plan</span>
-                <strong>
-                  <AnimatedMoney value={totals!.planned} enter />
-                </strong>
-                <small>Saved from plan v{month.baseline.planVersion}</small>
-              </div>
-              <div className={totals!.difference > 0 ? "over-budget" : ""}>
-                <span>
-                  {totals!.difference > 0
-                    ? "Above the plan"
-                    : "Not yet used in the plan"}
-                </span>
-                <strong>
-                  <AnimatedMoney value={Math.abs(totals!.difference)} enter />
-                </strong>
-                <small>
-                  {period === currentMonth()
-                    ? "Month still underway · entries may be incomplete"
-                    : "Based only on recorded expenses"}
-                </small>
-              </div>
+            </div>
+            <div className="spending-progress-track" aria-hidden="true">
+              <span
+                className={totals!.difference > 0 ? "over" : ""}
+                style={{
+                  width:
+                    Math.min(
+                      100,
+                      (totals!.total / Math.max(1, totals!.planned)) * 100,
+                    ) + "%",
+                }}
+              />
+            </div>
+            <p className="spending-scope">
+              Based on recorded costs. Bills you haven’t added are still outside
+              these totals.
+            </p>
+            <div className="spending-paid">
+              {pair.map((name, i) => (
+                <div key={i}>
+                  <span className={"person-orb person-" + i}>{name[0]}</span>
+                  <span>{name} covered</span>
+                  <strong>
+                    <AnimatedMoney value={totals!.paid[i]} />
+                  </strong>
+                </div>
+              ))}
+            </div>
+            <div className="spending-balance-line">
               <div>
                 <span>
                   {month.status === "agreed"
-                    ? "Remaining reimbursement"
-                    : "Projected reimbursement"}
+                    ? "Still to settle"
+                    : "If you settled these entries today"}
                 </span>
                 <strong>
-                  <AnimatedMoney value={Math.abs(outstanding)} enter />
+                  {outstanding ? (
+                    <>
+                      {pair[outstanding > 0 ? 0 : 1]} would reimburse{" "}
+                      {pair[outstanding > 0 ? 1 : 0]}{" "}
+                      <AnimatedMoney value={Math.abs(outstanding)} />
+                    </>
+                  ) : totals!.expenseCount ? (
+                    "Nothing to reimburse"
+                  ) : (
+                    "Add a payment to see the balance"
+                  )}
                 </strong>
-                <small>
-                  {outstanding
-                    ? pair[outstanding > 0 ? 0 : 1] +
-                      " → " +
-                      pair[outstanding > 0 ? 1 : 0]
-                    : totals!.expenseCount
-                      ? "No reimbursement due"
-                      : "Add costs to begin"}
-                </small>
+                {totals!.pending > 0 && (
+                  <small>
+                    {totals!.pending} reported transfer
+                    {totals!.pending > 1 ? "s" : ""} excluded until receipt is
+                    confirmed.
+                  </small>
+                )}
+              </div>
+              <button
+                className="text-button"
+                onClick={() =>
+                  setView(view === "activity" ? "review" : "activity")
+                }
+              >
+                {view === "activity" ? "Review & settle" : "Check entries"}
+                <ArrowRight size={15} />
+              </button>
+            </div>
+          </section>
+          {totals!.pending > 0 && (
+            <section
+              className="transfer-inbox"
+              aria-label="Transfers awaiting confirmation"
+            >
+              <p className="eyebrow">CHECK THE TRANSFER</p>
+              {month.entries
+                .filter((e) => e.kind === "transfer" && !e.confirmed)
+                .map((entry) => (
+                  <div key={entry.id}>
+                    <div>
+                      <strong>
+                        {pair[entry.author === "A" ? 0 : 1]} reported sending{" "}
+                        {money(entry.amount)}
+                      </strong>
+                      <p>
+                        {entry.author === state.role
+                          ? "Waiting for your partner to confirm receipt. This has not changed the balance."
+                          : "Check that the money arrived before confirming. Until then, it stays outside the balance."}
+                      </p>
+                    </div>
+                    {entry.author !== state.role ? (
+                      <div className="transfer-inbox-actions">
+                        <button
+                          className="button secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            run("confirmTransfer", { entryId: entry.id })
+                          }
+                        >
+                          I received this
+                        </button>
+                        <button
+                          className="text-button"
+                          disabled={busy}
+                          onClick={() =>
+                            run("rejectTransfer", { entryId: entry.id })
+                          }
+                        >
+                          I didn’t receive this
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="text-button"
+                        disabled={busy}
+                        onClick={() => setEditor({ kind: "transfer", entry })}
+                      >
+                        Review my report
+                      </button>
+                    )}
+                  </div>
+                ))}
+            </section>
+          )}
+          <section className="month-agreement">
+            <div>
+              <p className="eyebrow">ONE MONTH. TWO CONFIRMATIONS.</p>
+              <h2>
+                {month.status === "agreed"
+                  ? "You’ve checked this together."
+                  : "Does this match your month?"}
+              </h2>
+              <p>
+                {month.status === "agreed"
+                  ? "Your confirmed record stays in history. Reopening needs both people, and keeps this version."
+                  : "Review the expenses, refunds, transfers and split. Confirming records your agreement; it never sends money."}
+              </p>
+              <div className="month-approvals">
+                {pair.map((name, i) => (
+                  <span
+                    key={i}
+                    className={
+                      month.approvals[i === 0 ? "A" : "B"] ? "yes" : ""
+                    }
+                  >
+                    {month.approvals[i === 0 ? "A" : "B"] ? (
+                      <CheckCheck size={16} />
+                    ) : (
+                      <span className="approval-dot" />
+                    )}
+                    {name}:{" "}
+                    {month.approvals[i === 0 ? "A" : "B"]
+                      ? "confirmed"
+                      : "still to review"}
+                  </span>
+                ))}
               </div>
             </div>
-          </div>
+            <div className="month-confirm-controls">
+              {month.status === "open" ? (
+                <>
+                  {month.approvals[state.role] ? (
+                    <>
+                      <p>
+                        Your confirmation is saved. Waiting for your partner.
+                      </p>
+                      <button
+                        className="text-button"
+                        disabled={busy}
+                        onClick={() => run("withdrawApproval")}
+                      >
+                        Withdraw my confirmation
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <label className="month-review-check">
+                        <input
+                          type="checkbox"
+                          checked={reviewedVersion === month.version}
+                          disabled={
+                            busy ||
+                            !totals!.expenseCount ||
+                            !!editor ||
+                            totals!.pending > 0
+                          }
+                          onChange={(event) =>
+                            setReviewedVersion(
+                              event.target.checked ? month.version : null,
+                            )
+                          }
+                        />
+                        I’ve checked the recorded costs and split.
+                      </label>
+                      <button
+                        className="button primary"
+                        disabled={
+                          busy ||
+                          reviewedVersion !== month.version ||
+                          !totals!.expenseCount ||
+                          totals!.pending > 0 ||
+                          !!editor
+                        }
+                        onClick={() => run("approve")}
+                      >
+                        <Check size={17} />
+                        Confirm this month
+                      </button>
+                    </>
+                  )}
+                  {editor && (
+                    <p className="fine-print">
+                      You have an unfinished entry.{" "}
+                      <button
+                        className="text-button"
+                        onClick={() => setView("activity")}
+                      >
+                        Return to activity
+                      </button>{" "}
+                      to save or close it first.
+                    </p>
+                  )}
+                  {!totals!.expenseCount && (
+                    <p className="fine-print">
+                      Add at least one actual expense before confirming.
+                    </p>
+                  )}
+                  {totals!.pending > 0 && (
+                    <p className="fine-print">
+                      Resolve {totals!.pending} pending transfer
+                      {totals!.pending > 1 ? "s" : ""} first.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  {month.reopen[state.role] ? (
+                    <>
+                      <p>Waiting for your partner to reopen the month.</p>
+                      <button
+                        className="text-button"
+                        disabled={busy}
+                        onClick={() => run("cancelReopen")}
+                      >
+                        Keep the month confirmed
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="button secondary"
+                      disabled={busy}
+                      onClick={() => run("requestReopen")}
+                    >
+                      <RotateCcw size={16} />
+                      {Object.keys(month.reopen).length
+                        ? "Agree to reopen"
+                        : "Request a correction"}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
           <div className="month-workspace">
             <div className="month-ledger-column">
               <div className="month-section-heading">
@@ -552,17 +1081,8 @@ export default function MonthBook({
                   <p className="eyebrow">THE NUMBERS BEHIND YOUR MONTH</p>
                   <h2>Your shared activity.</h2>
                 </div>
-                {month.status === "open" && !editor && (
-                  <button
-                    className="button primary"
-                    onClick={() => setEditor({ kind: "expense" })}
-                  >
-                    <Plus size={17} />
-                    Add expense
-                  </button>
-                )}
               </div>
-              {month.status === "open" && !editor && (
+              {month.status === "open" && !upcoming && !editor && (
                 <div className="month-quick-categories">
                   {month.baseline.expenses.slice(0, 5).map((c) => (
                     <button
@@ -580,7 +1100,7 @@ export default function MonthBook({
                   </button>
                 </div>
               )}
-              {editor && month.status === "open" && (
+              {editor && month.status === "open" && !upcoming && (
                 <EntryForm
                   key={
                     period +
@@ -592,6 +1112,7 @@ export default function MonthBook({
                     (editor.categoryId || "")
                   }
                   editor={editor}
+                  defaultCategory={defaultCategory}
                   month={month}
                   role={state.role}
                   busy={busy}
@@ -600,7 +1121,14 @@ export default function MonthBook({
                       entry,
                       expectedUpdatedAt: editor.entry?.updatedAt,
                     });
-                    if (result) setEditor(null);
+                    if (result) {
+                      setEditor(null);
+                      setSearch("");
+                      setSavedEntry({
+                        id: String(entry.id),
+                        edited: !!editor.entry,
+                      });
+                    }
                     return result;
                   }}
                   onClose={() => setEditor(null)}
@@ -619,15 +1147,18 @@ export default function MonthBook({
                 </label>
               )}
               {!month.entries.length ? (
-                <div className="month-empty">
-                  <ReceiptText size={31} />
-                  <h3>Your first expense makes it real.</h3>
-                  <p>
-                    Add a bill or purchase either of you paid from personal
-                    funds. Planned bills and saving goals don’t appear as
-                    payments here.
-                  </p>
-                </div>
+                !editor &&
+                !upcoming && (
+                  <div className="month-empty">
+                    <ReceiptText size={31} />
+                    <h3>Your first expense makes it real.</h3>
+                    <p>
+                      Add a bill or purchase either of you paid from personal
+                      funds. Planned bills and saving goals don’t appear as
+                      payments here.
+                    </p>
+                  </div>
+                )
               ) : rows.length ? (
                 <div className="month-entries">
                   {rows.slice(0, shown).map((e) => {
@@ -687,29 +1218,6 @@ export default function MonthBook({
                                 : "Waiting for the recipient · not counted yet"}
                             </span>
                           )}
-                          {isTransfer &&
-                            !e.confirmed &&
-                            e.author !== state.role &&
-                            month.status === "open" && (
-                              <div className="entry-actions">
-                                <button
-                                  disabled={busy}
-                                  onClick={() =>
-                                    run("confirmTransfer", { entryId: e.id })
-                                  }
-                                >
-                                  <Check size={13} />I received this
-                                </button>
-                                <button
-                                  disabled={busy}
-                                  onClick={() =>
-                                    run("rejectTransfer", { entryId: e.id })
-                                  }
-                                >
-                                  I didn’t receive this
-                                </button>
-                              </div>
-                            )}
                           {(canEdit || canRefund) && (
                             <div className="entry-actions">
                               {canEdit && (
@@ -783,38 +1291,6 @@ export default function MonthBook({
                   <ChevronDown size={16} />
                 </button>
               )}
-              <div className="month-record-actions">
-                <button
-                  className="text-button"
-                  onClick={() => exportCsv(month)}
-                >
-                  <Download size={15} />
-                  Export CSV
-                </button>
-                <button
-                  className="text-button"
-                  onClick={() =>
-                    downloadFile(
-                      "first-month-" + period + ".txt",
-                      statement(month),
-                      "text/plain",
-                    )
-                  }
-                >
-                  <Download size={15} />
-                  Save statement
-                </button>
-                <button
-                  className="text-button"
-                  onClick={() => {
-                    setSearch("");
-                    setShown(250);
-                    setTimeout(() => window.print(), 100);
-                  }}
-                >
-                  Print
-                </button>
-              </div>
             </div>
             <aside className="month-balance-column">
               <section className="month-balance">
@@ -835,7 +1311,7 @@ export default function MonthBook({
                     </strong>
                     <p>
                       {month.status === "open"
-                        ? "Projected reimbursement from the entries below. Both people still need to confirm the month."
+                        ? "Based on recorded activity. Both people still need to confirm the month."
                         : receipt?.receivedAt
                           ? "The recipient confirmed receiving the settlement."
                           : outstanding
@@ -844,39 +1320,52 @@ export default function MonthBook({
                     </p>
                   </>
                 )}
-                <div className="month-person-totals">
-                  {pair.map((n, i) => (
-                    <div key={i}>
-                      <span className={"person-orb person-" + i}>{n[0]}</span>
-                      <strong>{n}</strong>
-                      <dl>
-                        <div>
-                          <dt>Costs covered</dt>
-                          <dd>
-                            <AnimatedMoney value={totals!.paid[i]} enter />
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Share of costs</dt>
-                          <dd>
-                            <AnimatedMoney value={totals!.shares[i]} enter />
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Confirmed money sent</dt>
-                          <dd>
-                            <AnimatedMoney value={totals!.sent[i]} enter />
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-                  ))}
-                </div>
-                <p className="fine-print">
-                  Transfers reimburse a partner; they don’t increase your shared
-                  spending. This is a record of what you report, not a payment
-                  service.
-                </p>
+                <details className="month-balance-math">
+                  <summary>
+                    How this balance is calculated <ChevronDown size={15} />
+                  </summary>
+                  <div className="month-person-totals">
+                    {pair.map((n, i) => (
+                      <div key={i}>
+                        <span className={"person-orb person-" + i}>{n[0]}</span>
+                        <strong>{n}</strong>
+                        <dl>
+                          <div>
+                            <dt>Costs covered</dt>
+                            <dd>
+                              <AnimatedMoney value={totals!.paid[i]} enter />
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Share of costs</dt>
+                            <dd>
+                              <AnimatedMoney value={totals!.shares[i]} enter />
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Confirmed money sent</dt>
+                            <dd>
+                              <AnimatedMoney value={totals!.sent[i]} enter />
+                            </dd>
+                          </div>
+                        </dl>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="fine-print">
+                    Transfers reimburse a partner; they don’t increase your
+                    shared spending. This is a record of what you report, not a
+                    payment service.
+                  </p>
+                </details>
+                {month.status === "open" && !upcoming && (
+                  <button
+                    className="text-button"
+                    onClick={() => setEditor({ kind: "transfer" })}
+                  >
+                    Record money I sent <ArrowUpRight size={15} />
+                  </button>
+                )}
                 {month.status === "agreed" && outstanding !== 0 && (
                   <div className="settlement-actions">
                     {receipt ? (
@@ -973,117 +1462,53 @@ export default function MonthBook({
               </section>
             </aside>
           </div>
-          <section className="month-agreement">
-            <div>
-              <p className="eyebrow">ONE MONTH. TWO CONFIRMATIONS.</p>
-              <h2>
-                {month.status === "agreed"
-                  ? "You’ve checked this together."
-                  : "Does this match your month?"}
-              </h2>
-              <p>
-                {month.status === "agreed"
-                  ? "Your confirmed record stays in history. Reopening needs both people, and keeps this version."
-                  : "Review the expenses, refunds, transfers and split. Confirming records your agreement; it never sends money."}
-              </p>
-              <div className="month-approvals">
-                {pair.map((name, i) => (
-                  <span
-                    key={i}
-                    className={
-                      month.approvals[i === 0 ? "A" : "B"] ? "yes" : ""
-                    }
-                  >
-                    {month.approvals[i === 0 ? "A" : "B"] ? (
-                      <CheckCheck size={16} />
-                    ) : (
-                      <span className="approval-dot" />
-                    )}
-                    {name}:{" "}
-                    {month.approvals[i === 0 ? "A" : "B"]
-                      ? "confirmed"
-                      : "still to review"}
-                  </span>
-                ))}
+          {month.status === "agreed" && (
+            <section className="month-next">
+              <div>
+                <p className="eyebrow">A FRESH MONTH, A FAMILIAR PLAN</p>
+                <h2>
+                  Ready for {monthTitle(shiftMonth(period)).split(" ")[0]}?
+                </h2>
+                <p>
+                  Reuse the categories and split you checked together. Start
+                  with an empty list of payments; this month’s history and any
+                  unsettled balance stay here.
+                </p>
               </div>
-            </div>
-            <div className="month-confirm-controls">
-              {month.status === "open" ? (
-                <>
-                  {month.approvals[state.role] ? (
-                    <>
-                      <p>
-                        Your confirmation is saved. Waiting for your partner.
-                      </p>
-                      <button
-                        className="text-button"
-                        disabled={busy}
-                        onClick={() => run("withdrawApproval")}
-                      >
-                        Withdraw my confirmation
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className="button primary"
-                      disabled={
-                        busy ||
-                        !totals!.expenseCount ||
-                        totals!.pending > 0 ||
-                        !!editor
-                      }
-                      onClick={() => run("approve")}
-                    >
-                      <Check size={17} />
-                      Confirm this month
-                    </button>
-                  )}
-                  {totals!.pending > 0 && (
-                    <p className="fine-print">
-                      Resolve {totals!.pending} pending transfer
-                      {totals!.pending > 1 ? "s" : ""} first.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <>
-                  {month.reopen[state.role] ? (
-                    <>
-                      <p>Waiting for your partner to reopen the month.</p>
-                      <button
-                        className="text-button"
-                        disabled={busy}
-                        onClick={() => run("cancelReopen")}
-                      >
-                        Keep the month confirmed
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className="button secondary"
-                      disabled={busy}
-                      onClick={() => run("requestReopen")}
-                    >
-                      <RotateCcw size={16} />
-                      {Object.keys(month.reopen).length
-                        ? "Agree to reopen"
-                        : "Request a correction"}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </section>
+              <button
+                className="button secondary"
+                disabled={busy}
+                onClick={() => changePeriod(shiftMonth(period))}
+              >
+                {state.months.some((m) => m.period === shiftMonth(period))
+                  ? "Open "
+                  : "Set up "}
+                {monthTitle(shiftMonth(period)).split(" ")[0]}
+                <ArrowRight size={16} />
+              </button>
+            </section>
+          )}
           <details className="month-plan-details">
             <summary>
               About this month’s plan <ChevronDown size={16} />
             </summary>
             <p>
-              Captured {fullDate(month.baseline.capturedAt)} from plan v
-              {month.baseline.planVersion}.{" "}
-              {month.baseline.sourceConfirmed
-                ? "The monthly plan was confirmed by both of you."
-                : "The starting plan was a draft; confirming this month also confirms the displayed split for these recorded expenses."}
+              {month.baseline.sourcePeriod ? (
+                <>
+                  Categories and split copied from{" "}
+                  {monthTitle(month.baseline.sourcePeriod)}, confirmed version{" "}
+                  {month.baseline.sourceMonthVersion}. Payments and approvals
+                  were not copied.
+                </>
+              ) : (
+                <>
+                  Captured {fullDate(month.baseline.capturedAt)} from plan v
+                  {month.baseline.planVersion}.{" "}
+                  {month.baseline.sourceConfirmed
+                    ? "The monthly plan was confirmed by both of you."
+                    : "The starting plan was a draft; confirming this month also confirms the displayed split for these recorded expenses."}
+                </>
+              )}
             </p>
             <p>
               {splitLabel(month)}. Changes to your monthly plan do not rewrite
@@ -1118,6 +1543,35 @@ export default function MonthBook({
               <ArrowRight size={15} />
             </a>
           </details>
+          <div className="month-record-actions">
+            <button className="text-button" onClick={() => exportCsv(month)}>
+              <Download size={15} />
+              Export CSV
+            </button>
+            <button
+              className="text-button"
+              onClick={() =>
+                downloadFile(
+                  "first-month-" + period + ".txt",
+                  statement(month),
+                  "text/plain",
+                )
+              }
+            >
+              <Download size={15} />
+              Save statement
+            </button>
+            <button
+              className="text-button"
+              onClick={() => {
+                setSearch("");
+                setShown(250);
+                setTimeout(() => window.print(), 100);
+              }}
+            >
+              Print
+            </button>
+          </div>
           {month.history.length > 0 && (
             <details className="month-history">
               <summary>
@@ -1163,6 +1617,7 @@ function ClockNotice() {
 }
 function EntryForm({
   editor,
+  defaultCategory,
   month,
   role,
   busy,
@@ -1171,6 +1626,7 @@ function EntryForm({
   onError,
 }: {
   editor: Editor;
+  defaultCategory: string;
   month: MonthView;
   role: "A" | "B";
   busy: boolean;
@@ -1178,6 +1634,7 @@ function EntryForm({
   onClose: () => void;
   onError: (s: string) => void;
 }) {
+  const [validation, setValidation] = useState("");
   const e = editor.entry,
     original = month.entries.find((x) => x.id === editor.originalId),
     pair = month.baseline.names;
@@ -1192,6 +1649,10 @@ function EntryForm({
       .toISOString()
       .slice(0, 10),
     today = new Date().toISOString().slice(0, 10);
+  const defaults = useRef({
+    categoryId: defaultCategory,
+    date: today < end ? today : end,
+  });
   const draft = useSavedDraft(
     "fm:month-entry:" +
       month.period +
@@ -1206,7 +1667,8 @@ function EntryForm({
     {
       id: e?.id || "",
       amount: e ? String(e.amount / 100) : "",
-      categoryId: e?.categoryId || editor.categoryId || "other",
+      categoryId:
+        e?.categoryId || editor.categoryId || defaults.current.categoryId,
       payer: e
         ? e.paidA === e.amount
           ? "A"
@@ -1218,7 +1680,7 @@ function EntryForm({
       title:
         e?.title ||
         (editor.kind === "refund" ? "Refund: " + original?.title : ""),
-      date: e?.date || (today < end ? today : end),
+      date: e?.date || defaults.current.date,
     },
   );
   const category = month.baseline.expenses.find(
@@ -1231,6 +1693,7 @@ function EntryForm({
       className="month-entry-form"
       onSubmit={async (ev) => {
         ev.preventDefault();
+        setValidation("");
         try {
           const amount = inputCents(draft.value.amount),
             paidA = transferring
@@ -1242,6 +1705,11 @@ function EntryForm({
                 : draft.value.payer === "B"
                   ? 0
                   : inputCents(draft.value.paidA);
+          if (amount <= 0) throw new Error("Enter an amount above zero.");
+          if (paidA > amount)
+            throw new Error(
+              pair[0] + "’s payment cannot be more than the total.",
+            );
           const id = draft.value.id || crypto.randomUUID();
           draft.change({ id });
           const result = await onSave({
@@ -1260,7 +1728,7 @@ function EntryForm({
           });
           if (result) draft.reset();
         } catch (err) {
-          onError((err as Error).message);
+          setValidation((err as Error).message);
         }
       }}
     >
@@ -1303,6 +1771,7 @@ function EntryForm({
                 ? "Amount sent"
                 : "Amount paid"
           }
+          disabled={busy}
           value={draft.value.amount}
           onChange={(amount) => draft.change({ amount })}
         />
@@ -1311,6 +1780,7 @@ function EntryForm({
             Category
             <select
               aria-label="Category"
+              disabled={busy}
               value={draft.value.categoryId}
               onChange={(ev) => draft.change({ categoryId: ev.target.value })}
             >
@@ -1368,9 +1838,11 @@ function EntryForm({
                 key={p.value}
                 type="button"
                 aria-pressed={draft.value.payer === p.value}
+                disabled={busy}
                 onClick={() => draft.change({ payer: p.value })}
               >
                 {p.label}
+                {p.value === role ? " (you)" : ""}
               </button>
             ))}
           </div>
@@ -1381,6 +1853,7 @@ function EntryForm({
           label={
             (refunding ? "Refund received by " : "Amount covered by ") + pair[0]
           }
+          disabled={busy}
           value={draft.value.paidA}
           onChange={(paidA) => draft.change({ paidA })}
           hint={
@@ -1392,7 +1865,8 @@ function EntryForm({
       )}
       <details className="entry-extra" open={!!e}>
         <summary>
-          Date & description
+          {draft.value.date === today ? "Today" : fullDate(draft.value.date)} ·{" "}
+          {draft.value.title ? "Edit description" : "Add a note or change date"}
           <ChevronDown size={14} />
         </summary>
         <div className="form-grid">
@@ -1401,6 +1875,7 @@ function EntryForm({
             <input
               type="date"
               aria-label="Entry date"
+              disabled={busy}
               required
               min={month.period + "-01"}
               max={today < end ? today : end}
@@ -1412,6 +1887,7 @@ function EntryForm({
             Description <span className="optional">Optional</span>
             <input
               aria-label="Description"
+              disabled={busy}
               maxLength={100}
               value={draft.value.title}
               onChange={(ev) => draft.change({ title: ev.target.value })}
@@ -1429,22 +1905,42 @@ function EntryForm({
           ? `${pair[role === "A" ? 1 : 0]} must confirm receiving this before it changes the balance. No money is sent by First Month.`
           : "This entry is shared with your partner. Add only costs paid from personal funds, not an already shared savings pot."}
       </p>
+      {(month.approvals.A || month.approvals.B) && (
+        <p className="entry-confirmation-note">
+          Saving this entry resets the month’s confirmations so you can both
+          review the updated costs.
+        </p>
+      )}
+      {validation && (
+        <p className="error entry-validation" role="alert">
+          {validation}
+        </p>
+      )}
       <div className="form-actions">
-        <button className="button primary" disabled={busy || draft.conflict}>
-          {e
-            ? "Save changes"
-            : refunding
-              ? "Save refund"
-              : transferring
-                ? "Report this transfer"
-                : "Save expense"}
+        <button
+          className="button primary"
+          disabled={busy || (!!e && draft.conflict)}
+        >
+          {busy
+            ? "Saving…"
+            : e
+              ? "Save changes"
+              : refunding
+                ? "Save refund"
+                : transferring
+                  ? "Report this transfer"
+                  : "Save expense"}
           <Check size={17} />
         </button>
         <button type="button" className="text-button" onClick={onClose}>
           Cancel
         </button>
       </div>
-      <DraftStatus {...draft} onReset={() => draft.reset()} />
+      <DraftStatus
+        {...draft}
+        conflict={!!e && draft.conflict}
+        onReset={() => draft.reset()}
+      />
     </form>
   );
 }

@@ -2,6 +2,12 @@
 /** @typedef {import('../month-types').MonthBaseline} Baseline */
 /** @typedef {import('../month-types').HouseholdMonth} Month */
 export const currentMonth = (now = new Date().toISOString()) => now.slice(0, 7);
+export function shiftMonth(period, offset = 1) {
+  const [year, month] = period.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1 + offset, 1, 12))
+    .toISOString()
+    .slice(0, 7);
+}
 export function monthTitle(period) {
   return new Intl.DateTimeFormat("en-US", {
     month: "long",

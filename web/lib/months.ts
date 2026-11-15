@@ -13,6 +13,7 @@ import {
   currentSettlement,
   monthTotals,
   refundable,
+  shiftMonth,
 } from "./domain/month.js";
 type Row = {
   id: string;
@@ -27,8 +28,8 @@ const periodSchema = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
   .refine(
-    (x) => x >= "2020-01" && x <= currentMonth(),
-    "Choose this month or an earlier month.",
+    (x) => x >= "2020-01" && x <= shiftMonth(currentMonth()),
+    "Choose an earlier month, this month, or prepare next month.",
   );
 const day = z
   .string()
@@ -177,7 +178,44 @@ export async function mutateMonth(request: Request, roomId: string) {
         400,
         "This space has reached its 120-month limit. Your saved history remains available.",
       );
-    const baseline = captureBaseline(room, input.split === "equal");
+    let baseline: MonthBaseline;
+    if (input.sourcePeriod !== undefined) {
+      const sourcePeriod = periodSchema.parse(input.sourcePeriod);
+      if (shiftMonth(sourcePeriod) !== period)
+        throw new HttpError(
+          400,
+          "Copy settings from the immediately preceding month.",
+        );
+      const sourceRow = await database()
+        .prepare(
+          "SELECT * FROM household_months WHERE room_id = ? AND period = ?",
+        )
+        .bind(roomId, sourcePeriod)
+        .first<Row>();
+      if (!sourceRow)
+        throw new HttpError(
+          404,
+          "The previous month was not found in this space.",
+        );
+      const source = JSON.parse(sourceRow.data) as HouseholdMonth;
+      if (source.status !== "agreed" || Object.keys(source.reopen).length)
+        throw new HttpError(
+          400,
+          "Finish confirming the previous month before reusing its settings.",
+        );
+      if (input.sourceRevision !== sourceRow.revision)
+        throw new HttpError(
+          409,
+          "The previous month changed. Review it before copying its settings.",
+        );
+      baseline = {
+        ...structuredClone(source.baseline),
+        names: [room.partners.A.name, room.partners.B.name],
+        capturedAt: now,
+        sourcePeriod,
+        sourceMonthVersion: source.version,
+      };
+    } else baseline = captureBaseline(room, input.split === "equal");
     const item: HouseholdMonth = {
       period,
       baseline,
