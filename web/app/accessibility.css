@@ -1,0 +1,74 @@
+/* Secondary copy stays readable on the cream, peach, and blue surfaces. */
+.legal-shell main p,
+.life-heading > p:last-child,
+.life-heading > div > p:last-child,
+.home-greeting .eyebrow span,
+.home-section-top .eyebrow,
+.money-panel-totals > div > span,
+.home-budget-people article > div > span > small,
+.budget-legend,
+.home-history-link > p,
+.decision-perspectives > summary > span,
+.conversation-help > summary > span,
+.decision-discovery .overline,
+.decision-discovery p:last-child,
+.impact-heading > .overline,
+.impact-heading > span:last-child,
+.impact-person-top > span:nth-child(2),
+.impact-person-top strong small,
+.impact-person dt,
+.settings-danger > div > p {
+  color: #62645e;
+}
+.next-progress small,
+.next-progress li:not(.done) > span {
+  color: #625644;
+}
+.home-month-strip p,
+.home-commitments small {
+  color: #5b6470;
+}
+.status-tag {
+  color: #795638;
+}
+.status-tag.green {
+  color: #435a37;
+}
+.option-choice-top > span:first-child,
+.option-mini-split > span,
+.option-choice-price small,
+.option-choice .option-choice-bottom,
+.projection-assumption,
+.option-next .overline,
+.option-next > div > span:last-child,
+.option-next > .text-button {
+  color: #535e70;
+}
+.option-choice.strained .option-badge {
+  color: #86552f;
+}
+.option-choice.fits .option-badge {
+  color: #496146;
+}
+.perspective-grid h4 {
+  color: #695b3d;
+}
+.perspective-grid article > p {
+  color: #4d5e76;
+}
+.perspective-grid article + article > p {
+  color: #765339;
+}
+.feeling-options button {
+  color: #56647b;
+}
+.consent-note {
+  color: #59654b;
+}
+.split-methods button:not([aria-pressed="true"]) {
+  color: #555f70;
+}
+.life-mobile-nav button:not(.active),
+.life-mobile-nav a:not(.active) {
+  color: #52637f;
+}

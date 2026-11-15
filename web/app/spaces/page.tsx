@@ -3,13 +3,15 @@ import { useEffect, useState } from "react";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import { Brand } from "@/components/brand";
 export default function Spaces() {
-  const [recent, setRecent] = useState(""),
+  const [ready, setReady] = useState(false),
+    [recent, setRecent] = useState(""),
     [value, setValue] = useState(""),
     [error, setError] = useState("");
   useEffect(() => {
     try {
       setRecent(localStorage.getItem("fm:recent") || "");
     } catch {}
+    setReady(true);
   }, []);
   return (
     <div className="space-loading">
@@ -48,6 +50,7 @@ export default function Spaces() {
             Your personal link
             <input
               type="text"
+              disabled={!ready}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               autoComplete="off"
@@ -61,7 +64,7 @@ export default function Spaces() {
               {error}
             </p>
           )}
-          <button className="button secondary">
+          <button className="button secondary" disabled={!ready}>
             Open this space
             <ArrowRight size={17} />
           </button>

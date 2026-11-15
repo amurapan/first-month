@@ -280,6 +280,7 @@ export default function Overview({
                         </div>
                         <div
                           className="budget-track"
+                          role="img"
                           aria-label={name + " projected monthly allocation"}
                         >
                           <span

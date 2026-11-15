@@ -1,140 +1,144 @@
-# First Month
+<div align="center">
+  <img src="web/public/favicon.svg" alt="" width="64" height="64" />
+  <h1>First Month</h1>
+  <p><strong>Shared bills. A plan for both of you.</strong></p>
+  <p>Agree on the money side of moving in together — and keep the plan working afterward.</p>
+  <p>
+    <a href="https://first-month-six.vercel.app"><strong>Open the live app →</strong></a>
+    &nbsp; · &nbsp;
+    <a href="#try-it-in-two-minutes">Try the demo</a>
+    &nbsp; · &nbsp;
+    <a href="docs/DEVELOPMENT.md">Run locally</a>
+    &nbsp; · &nbsp;
+    <a href="docs/RELEASE-CHECK.md">Release checks</a>
+  </p>
+  <p><sub>Money track · B2C · US couples · Browser-based · Free release</sub></p>
+</div>
 
-A shared home for the money decisions couples make when moving in together — and the weeks after.
+[![First Month landing page, with an interactive shared-bill comparison](docs/images/landing.png)](https://first-month-six.vercel.app)
 
-[Open First Month](https://first-month-six.vercel.app) — no login required. Choose **Explore a sample household** to explore both roles with fictional data, or create a plan and invite your partner.
+## Moving in brings a lot to agree on
 
-## Product
+Rent is only the beginning. Two people also need to decide which costs are shared, how much each contributes, who pays, and what happens when the plan changes.
 
-- Result explanations distinguish missing information, income shortfalls and personal preferences; an alternative split is an option to discuss, never a verdict.
-- One main next action reflects the current role, including unconfirmed transfers from earlier months.
-- An invitation preview explains the process before joining and reveals only the inviter’s name and whether a starting plan exists.
-- Private product feedback with resilient browser drafts, author-only history, export and deletion.
-- One consistent navigation for the budget and household, with clear separation between planned contributions and actual spending. Old personal links open the same workspace.
-- Saved profiles and planned costs open as summaries; editing is optional. Sharing can be completed inline without filling the profile again.
-- Browser back/forward follows sections; unsaved split comparisons survive navigation and cannot be mistaken for the saved agreement.
-- One side-by-side result shows contributions and money left. Detailed math and conversation support expand on demand; shortfalls remain visible. Trying an option, saving a proposal, and both agreeing are separate states.
-- Separate personal links for two partners, with a single-use invitation.
-- Private answers stay hidden until both people explicitly choose to share.
-- Decisions follow four visible steps: perspective, comparison, mutual agreement, and follow-through. A purchase completion never creates a paid expense; Spending keeps the actual payment record.
-- Check-ins can start from a recorded cost, a purchase, or an unfinished earlier step. Each person's optional topic follows the same sharing rules as their answer. Previous weeks' unfinished actions remain available to confirm and complete.
-- Editable shared expenses and equal, income-based, or custom contributions.
-- Both partners confirm the same plan version; changes reset both confirmations.
-- A household dashboard with next steps based on each person’s actual progress and transfers awaiting receipt confirmation.
-- Monthly expense, refund, and reimbursement records with a frozen split, planned-versus-recorded comparisons, two-person confirmation, and version history.
-- Sender-reported transfers count only after the receiver confirms. Correcting a confirmed month requires both people and retains previously confirmed settlements.
-- Separate Activity and Review & settle views, with quick expense entry, visible saved-entry feedback, reusable category defaults, saved drafts, search, CSV and statement exports, and printing.
-- Receipt reports are surfaced before closing a month; each person reviews the current version and confirms separately.
-- Prepare the next calendar month using current budget settings or the previous confirmed month’s categories and frozen split. Payments, approvals, history, and unsettled balances are never copied. Future-dated payments are rejected.
-- Decision starters for furniture, trips, and recurring costs; amounts always come from the user.
-- Purchase and recurring-cost decisions with private perspectives, calculated timing/price/split options, and two separate confirmations.
-- A combined commitment ledger: accepted purchases and savings goals stay visible when evaluating the next decision.
-- An interactive monthly-split example on the landing page; the sample household opens the same budget comparison, with spending, a travel goal, and a sofa decision available afterward.
-- Exact-cent savings schedules and progress reported by each partner. No money is held or transferred.
-- Confirmed recurring costs can be added to the monthly budget, which then needs fresh approval.
-- Weekly check-ins with separate answers, a jointly approved action, completion, and history.
-- Immutable snapshots of accepted monthly plans, printable agreements, and calendar reminders.
-- Private link backup and replacement, redacted data export, and confirmed household deletion.
-- A clearly labelled fictional demo with role switching.
-- Optional conversation guide generated from the information both people shared.
-- A two-step starting wizard: incomes, shared costs, then an instant comparison before saving a room.
-- Optional names, date, itemized costs, personal bills, and priorities; browser drafts resume after a refresh.
-- A private partner-income estimate that is replaced by the partner’s own answer after mutual sharing.
-- A complete printable agreement, including the transfer routine and review date.
+**First Month turns those decisions into a shared routine.** Each person adds their own perspective, compares the numbers, and confirms the same version. Afterward, they can record actual spending, plan a purchase, and choose a concrete next step at their weekly check-in.
 
-The conversation guide uses Groq with server-side `GROQ_API_KEY` and optional `GROQ_MODEL` (defaults to `openai/gpt-oss-120b`). An existing OpenAI connection can still be used with `OPENAI_API_KEY` and `OPENAI_MODEL` when no Groq key is set. With neither configured, the guide reports that it is unavailable; it never returns a canned substitute. This release is free. Payments and outgoing email are not connected. Support: [kudomiya@proton.me](mailto:kudomiya@proton.me).
+No account creation. No bank connection. Each partner has their own private access link.
 
-## Local development
+## Try it in two minutes
 
-Requires Node.js 22.13 or later.
+1. **[Open First Month](https://first-month-six.vercel.app)** and choose **Try a sample household**. Alex and Jordan's data is explicitly fictional; your demo gets its own space.
+2. In **Our budget**, switch between equal and income-based contributions. See what each person contributes and has left.
+3. Open **Decisions → A sofa for our living room**. Compare buying now, saving first, and changing the price or split. Propose an option.
+4. Use **Switch to Jordan** in the sample banner to try the other person's perspective and confirmation.
+5. Visit **Spending** for recorded costs, or **Check-in** to turn a conversation into one action with an owner and a date.
+
+To try your own numbers, choose **Compare our costs**. The starting comparison takes two steps; saving it creates a space you can invite your partner into. Save your personal link somewhere private.
+
+## From the first plan to the next month
+
+| Where | What you get | What brings you back |
+| --- | --- | --- |
+| **Our budget** | Equal, income-based, or custom contributions; money left for each person; a printable agreement. | A change in income, shared costs, or priorities. |
+| **Spending** | Expenses, refunds, confirmed reimbursements, and a joint month-end review. | The next shared bill and settling the month together. |
+| **Decisions** | Private perspectives, calculated purchase options, a savings schedule, and separate approvals. | A purchase to discuss or a goal to fund. |
+| **Check-in** | A topic from your week, two perspectives, and one agreed action with an owner and a date. | Following through, then deciding what to adjust. |
+| **Overview** | One next action based on your household's current state. | Knowing what needs your attention today. |
+
+**Compare → agree together → record real costs → check in → adjust the next month.**
+
+## A look inside
+
+<table>
+  <tr>
+    <td width="50%"><a href="docs/images/budget.png"><img src="docs/images/budget.png" alt="Budget comparison showing each partner's contribution and remaining money" /></a></td>
+    <td width="50%"><a href="docs/images/spending.png"><img src="docs/images/spending.png" alt="Shared spending with recorded expenses, planned costs, and a quick-add action" /></a></td>
+  </tr>
+  <tr>
+    <td><strong>A budget you both understand.</strong><br />Try a split before saving it. Each person confirms separately.</td>
+    <td><strong>See how the month is actually going.</strong><br />Record who paid and compare actual costs with the plan.</td>
+  </tr>
+  <tr>
+    <td><a href="docs/images/decisions.png"><img src="docs/images/decisions.png" alt="Calculated options for a shared sofa purchase" /></a></td>
+    <td><a href="docs/images/checkin.png"><img src="docs/images/checkin.png" alt="Both partners' weekly check-in and the next-step action" /></a></td>
+  </tr>
+  <tr>
+    <td><strong>Make room for both perspectives.</strong><br />Compare timing, contributions, and existing commitments.</td>
+    <td><strong>Leave the conversation with a next step.</strong><br />Agree on what to do, who will do it, and by when.</td>
+  </tr>
+</table>
+
+<details>
+  <summary><strong>See the mobile experience</strong></summary>
+  <br />
+  <p align="center">
+    <img src="docs/images/mobile-budget.png" alt="Budget comparison on a narrow mobile screen" width="31%" />
+    &nbsp;
+    <img src="docs/images/mobile-spending.png" alt="Quick expense entry on mobile" width="31%" />
+    &nbsp;
+    <img src="docs/images/mobile-checkin.png" alt="A concrete weekly next step on mobile" width="31%" />
+  </p>
+</details>
+
+<sub>Actual application screenshots using the labelled sample household. Click a desktop image to view it at full size.</sub>
+
+## Built around two separate voices
+
+- **Sharing is a choice.** Personal profiles and conversation answers stay private until the relevant answers are shared by both people. An estimated partner income stays private to its author.
+- **Agreement needs two confirmations.** One person cannot approve for the other. Changing financial terms resets approvals; stale updates are rejected.
+- **Money calculations use exact cents.** Split comparisons, refunds, savings schedules, and reimbursements run in deterministic code.
+- **Plans and payments have separate records.** Agreeing to buy a sofa creates a commitment. An expense is recorded only when someone enters an actual payment. A reported transfer counts after its recipient confirms receipt.
+- **Your work survives interruptions.** Browser drafts preserve unfinished answers. Repeated expense submissions use stable IDs to avoid duplicate entries.
+- **Your data stays accessible.** Download a personal-link backup, export your permitted records, print an agreement, replace your link, or delete the shared household.
+
+## Conversation help, when you want it
+
+Optional generated guides use the context both partners have shared to suggest **three discussion questions and an opening sentence**. Budget arithmetic and approvals stay in application code.
+
+Groq is configured on the server; an OpenAI alternative is supported. The interface shows a real pending state, a generated result, or a recoverable error. No canned response substitutes for an unavailable model. Notes and selected topics are sent only when a guide is requested; free-text context can contain amounts.
+
+## Under the hood
+
+| Layer | Implementation |
+| --- | --- |
+| Interface | React 19, TypeScript, App Router conventions, local fonts, responsive CSS |
+| Application runtime | Vinext on a Cloudflare Worker |
+| Persistence | Cloudflare D1, schema migrations, revision-checked writes |
+| Public URL | Vercel entry point forwarding to the existing Worker |
+| Money logic | Framework-independent JavaScript modules and exact-cent calculations |
+| Conversation generation | Groq; optional OpenAI alternative; validated structured output |
+| Access | Separate random personal tokens, hashed server-side; single-use invitation |
+
+Read the [architecture and boundaries](docs/ARCHITECTURE.md) for data visibility, concurrency, hosting, and financial assumptions.
+
+## Run it locally
+
+Requires **Node.js 22.13+** and npm.
 
 ```sh
-npm --prefix web ci
+git clone https://github.com/amurapan/first-month.git
+cd first-month
+npm --prefix web run install:ci
 npm run build
 ```
 
-On a fresh local database, apply the five schema migrations once:
-
-```sh
-cd web
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_cultured_inhumans.sql
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_daily_anita_blake.sql
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0002_workable_bug.sql
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0003_lively_mephisto.sql
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0004_eminent_ironclad.sql
-cd ..
-npm run dev
-```
-
-Open the URL printed by the dev server. For a local model connection, set the names from `web/.env.example` in an ignored `web/.dev.vars` file. Production secrets are configured separately with the hosting provider.
-
-## Checks
+Then [initialize the local database](docs/DEVELOPMENT.md#initialize-the-local-database) and run `npm run dev`. The complete setup, optional model configuration, verification commands, and screenshot script are in [Development](docs/DEVELOPMENT.md).
 
 ```sh
 npm test
 node web/node_modules/typescript/bin/tsc -p web/tsconfig.json --noEmit
-# With the local server running:
-npm run check:api
-npm run check:household
-npm run check:month
-npm run check:onboarding
-node web/scripts/check-month-continuity.mjs
 ```
 
-The domain tests cover exact-cent allocations and savings schedules, unknown versus zero income, incomplete personal budgets, weekly boundaries, private perspectives, and agreement transitions. The API check creates fictional local records and verifies role authorization, private-field redaction, invitation reuse, stale writes, both approvals, persisted check-ins, and isolation of preliminary estimates from actual partner answers. The household check also verifies cross-household isolation, purchase approvals, per-role saving progress, weekly actions, immutable history, atomic recurring-cost application, key rotation, and deletion. The monthly check additionally covers refunds, recorded payers, receipt confirmations, idempotent additions, fixed historical ratios, concurrent-edit rejection, two-person corrections, and closed history. The onboarding check covers minimal invitation previews, private feedback, repeat submissions, rate limits, author-only export, and household deletion. The continuity check covers preparing the next month, copying only confirmed settings, separate unsettled balances, stale source revisions, calendar boundaries, and sharing restrictions. The checks remove their own fictional test rooms. Set `TEST_BASE_URL` explicitly to test another environment.
+The [release report](docs/RELEASE-CHECK.md) records the API and browser scenarios checked, accessibility findings, and remaining submission work.
 
-## Layout
+## Product and research status
 
-- `web/app/`: pages and HTTP endpoints
-- `web/components/start-wizard.tsx`: the two-step local starting calculation
-- `web/components/space-app.tsx` and `space/`: household dashboard, decisions, check-ins, and settings
-- `web/components/plan-app.tsx`: budget sections inside the shared workspace and printable agreement
-- `web/lib/room.ts`: authorization, monthly-plan storage, and data visibility
-- `web/lib/life.ts` and `conversation.ts`: household decisions, check-ins, and contextual generation
-- `web/lib/months.ts` and `month-types.ts`: monthly ledger, receipts, and versioned confirmation
-- `web/components/space/month-book.tsx`: monthly review and fast entry
-- `web/lib/domain/`: deterministic budget, ledger and approval logic
-- `web/db/` and `web/drizzle/`: D1 schema and migrations
-- `research/`: source accounts and draft participant studies
+The current release is **free**. Payments, subscriptions, bank connections, and outgoing email are not enabled.
 
-## Access and storage
+The business hypothesis is a subscription per household for ongoing coordination: a shared budget, monthly reconciliation, purchase planning, and recurring check-ins. Pricing, conversion, retention, and acquisition economics still need real-user validation. Inviting a partner helps activate a household; it does not by itself prove low acquisition cost.
 
-Room access uses random 256-bit personal tokens, stored as hashes on the server. Tokens in links are URL fragments, and API requests send them as authorization headers. Anyone with a personal link can act as that role; save it privately. There are no accounts or email-based recovery. Save a personal link or download its backup from **Settings & access**. **Open our space** restores access from a saved link. Replacing a link invalidates only that person’s old link. Updates use optimistic concurrency checks, and accepting a stale plan is rejected.
+Seven public accounts informed the initial moving-in scenario. They are secondary research. **No customer interviews, paid conversions, or participant usability studies are claimed.** See the [research findings](research/findings-ru.txt), [source records](research/evidence.csv), and [prepared interview script](research/interview-en.txt).
 
-The starting wizard and unsaved profile/expense edits are stored in this browser, including amounts entered. **Clear draft** removes the starting wizard draft. Saving a room sends the plan to the server and clears that wizard draft. Decision and check-in drafts are also kept locally until saved; conflicting edits ask the user to reload the latest answer. Saved personal links and the last workspace section are also kept locally. Use a private browser profile on shared devices.
+---
 
-Estimated partner income is visible only to its author and never fills the partner’s actual profile. Missing personal bills and savings are labelled as not added, rather than treated as a verified zero-cost budget.
-
-Personal commitments change the remaining-money calculation, not the income-based split itself. The application shows the consequences of a proposed arrangement without deciding whether it is fair.
-
-The model endpoints only use mutually shared names, priorities, notes, expense categories, the chosen split method, whether each person’s preference is met, and the relevant decision or check-in context. Structured income, expense amounts, and remaining balances are not sent to the provider; free-text notes and selected check-in topics are transmitted as shared, and can contain amounts. The guide is an aid for starting a conversation; all arithmetic is deterministic and shown separately. Monthly-plan guides have an eight-attempt limit per room; purchase and check-in guides have a twelve-attempt limit per conversation. All share a global 100-attempt daily cap and a 45-second timeout, with caching tied to the current plan and answer revisions. Weekly recaps also use category-level monthly facts and are invalidated when the current month changes; structured monetary amounts and receipt entries are not sent to the model. The model returns three questions and an opening sentence as validated JSON. Budget context comes from deterministic calculations; model reasoning is never displayed. Changes invalidate the guide and both approvals; saving unchanged terms preserves them.
-
-To print or save a PDF, open the agreement and choose **Print / save PDF**. The printable document contains the shared expenses, contributions, remaining balances, transfer rule, purchase threshold, next review, and each person's approval state.
-
-## Hosting and release limits
-
-The public Vercel entry point uses external rewrites to the existing Sites-hosted Cloudflare Worker and D1 database. This preserves saved links and records and requires no additional database service. It is **not a native Vercel backend migration**. `deploy/vercel/vercel.json` contains routing only; `.vercelignore` limits CLI uploads to that directory. Git deployments use `deploy/vercel` as the project root. Runtime secrets remain on the backend, never in Vercel’s public assets or the repository.
-
-Set the backend’s `APP_URL` to the stable Vercel production origin so same-origin browser writes through the proxy are accepted. The original backend origin also remains supported. API responses are private and uncached. Schema migrations are applied by the Sites deployment.
-
-No paid services were enabled. Vercel Hobby is for personal, non-commercial use; an eventual commercial launch must use eligible hosting under [Vercel’s plan terms](https://vercel.com/docs/plans/hobby). This unpaid release does not activate subscriptions or claim validated willingness to pay. Conversation generation depends on the configured provider’s free quota and may become unavailable when that quota is exhausted.
-
-Decision comparisons include the monthly budget and other accepted commitments across a 24-month projection. Unapproved ideas are not reserved. Accepted contribution amounts are frozen, and saving deadlines do not silently move forward each month. A replacement proposal retains the earlier agreement until both approve a replacement or both cancel. Completed purchases are immutable; a new purchase starts a new decision. Final approvals on different decisions share a parent revision, preventing simultaneous approvals from silently relying on the same unreserved balance.
-
-Savings progress is self-reported. New progress increases count in the current UTC month; legacy undated totals are treated as previously set aside. Completing a savings goal does not deduct its full price again. Applied recurring costs move into the monthly budget without being counted twice. Projections hold income and bills constant and are not bank balances or actual spending records. Unknown personal costs and comfort amounts are explicitly incomplete, never a verified fit. The workspace displays up to 200 decisions, 104 weekly check-ins, 120 monthly records (250 entries and 12 confirmed snapshots each), and 60 accepted plan snapshots; exports include all saved check-ins and snapshots. Weekly boundaries are Monday in UTC. Calendar reminders are downloaded by the user; there is no email scheduler.
-
-The monthly ledger is separate from savings projections: planned costs, approved goals, and reported goal funding never create actual payments automatically. It supports shared expenses paid from A/B personal funds, same-month refunds tied to an expense, and transfers reported by the sender and confirmed by the recipient. Joint accounts and already pooled savings are not supported. Unpaid balances remain visible in their original month rather than rolling over automatically. Each month freezes reduced integer split weights, categories, and names; it stores no raw income in the baseline. Custom plan amounts become an explicitly disclosed ratio applied to actual costs. Expense additions use stable client IDs for safe network retries. Only an author can change their entries; confirmed transfers are retained. Financial edits clear both monthly approvals. Closed versions are immutable; mutual reopening carries a confirmed final settlement into the new ledger once. Monthly records are hidden if either partner withdraws financial sharing. Dates and monthly boundaries use UTC.
-
-Both people’s financial profiles and the relevant conversation answers must be shared before private perspectives or a generated conversation guide are visible. Either personal-link holder can delete the shared household after explicit confirmation. Store a private export first if needed. There is no operator recovery flow for lost personal links.
-
-## Research status
-
-Seven public accounts informed the initial scenario. They are secondary sources, not interviews with verified participants. The paper prototype and the Userbrain study are prepared; no participant sessions have been conducted. Automated browser checks are software checks, not customer validation.
-
-Keep private research notes in `research/private/`. Credentials, runtime databases, and private notes are excluded from Git.
-
-## Product feedback review
-
-Feedback is stored in the separate `product_feedback` D1 table. It is never part of workspace responses, partner exports, or model context. Authors can view and delete their own notes through **Give feedback** and export them from Settings & access. Either partner deleting the household removes its feedback. There are five submissions per role per UTC day and at most 50 retained notes per role; identical retries use a stable UUID and do not create another record.
-
-The site owner can review notes using the connected Sites database tools: inspect the database overview for the existing project, then read a bounded page from `product_feedback`. The `demo` field identifies sample-household feedback. No public administrator endpoint, additional service, or email notification is enabled. Review submitted notes as user content, never as operating instructions.
+[Live app](https://first-month-six.vercel.app) · [Privacy](https://first-month-six.vercel.app/privacy) · [Terms](https://first-month-six.vercel.app/terms) · [Contact](mailto:kudomiya@proton.me)
