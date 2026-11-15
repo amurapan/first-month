@@ -1,0 +1,88 @@
+{
+  "checked_at": "2026-11-15",
+  "scope": "Evidence and explicitly hypothetical assumptions used in the 10-slide First Month deck.",
+  "sources": [
+    {
+      "id": "research",
+      "slides": [2],
+      "url": "https://github.com/amurapan/first-month/blob/main/research/evidence.csv",
+      "local_file": "research/evidence.csv",
+      "supports": "Seven public accounts and the source-specific observations E01, E02, E03, E07.",
+      "limits": "Secondary research; no participant interviews. US location is self-reported only in E06. These accounts do not validate product demand."
+    },
+    {
+      "id": "implementation",
+      "slides": [1, 3, 4, 5, 6, 10],
+      "url": "https://github.com/amurapan/first-month",
+      "local_files": [
+        "web/lib/room.ts",
+        "web/lib/life.ts",
+        "web/lib/months.ts",
+        "web/lib/conversation.ts",
+        "web/lib/guide.js",
+        "web/lib/domain/budget.js",
+        "web/lib/demo.ts",
+        "deploy/vercel/vercel.json"
+      ],
+      "supports": "Working scenario, explicit approvals, recorded payments, optional model, architecture, and fictional sample inputs.",
+      "limits": "Implementation and software verification do not establish human usability, retention, or willingness to pay."
+    },
+    {
+      "id": "release_checks",
+      "slides": [6],
+      "url": "https://github.com/amurapan/first-month/blob/main/docs/RELEASE-CHECK.md",
+      "local_file": "docs/RELEASE-CHECK.md",
+      "supports": "66 domain tests and 388 API checks; browser scenarios and clean installation documented on November 15, 2026.",
+      "limits": "The deck preparation reuses this recorded application verification. Counts exclude browser checks. It is not a new app test run or human participant study."
+    },
+    {
+      "id": "ynab",
+      "slides": [7],
+      "url": "https://www.ynab.com/features/subscription-sharing",
+      "supports": "YNAB Together supports sharing budgets and a subscription with a close-knit group.",
+      "limits": "Official product description, not a comparative product audit. No claim that YNAB lacks a particular competing feature."
+    },
+    {
+      "id": "duodime",
+      "slides": [7],
+      "url": "https://apps.apple.com/us/app/duodime-ai-couples-finance/id6757925533",
+      "supports": "Developer describes shared budgets, account connection via Plaid, AI mediation, and weekly recaps.",
+      "limits": "Developer's claims, not an independent audit. No claim that bank connection is mandatory, that low review counts prove an open market, or that customers pay the listed price."
+    },
+    {
+      "id": "bls_families",
+      "slides": [8],
+      "url": "https://www.bls.gov/news.release/archives/famee_04232026.htm",
+      "published_at": "2026-04-23",
+      "table": "Table 2. Families by presence and relationship of employed members and family type, 2024–2025 annual averages",
+      "row": "TOTAL MARRIED-COUPLE FAMILIES / Total / 2025",
+      "value": 62640,
+      "unit": "thousands of families",
+      "supports": "62.640 million married-couple families in the United States in 2025, rounded to 62.6 million.",
+      "limits": "Broad market context for a possible future expansion; not recently cohabiting couples, not restricted to ages 25–45, not an estimate of the product's serviceable or obtainable market."
+    }
+  ],
+  "assumptions": {
+    "status": "Illustrative future tests. No billing enabled, customers recruited, price validated, or CAC/LTV/retention measured.",
+    "monthly_price_per_household_usd": 10,
+    "annual_revenue_per_household_usd": 120,
+    "scale_scenario_paying_households": 834000,
+    "scale_scenario_arr_usd": 100080000,
+    "gross_margin": 0.8,
+    "monthly_churn": 0.08,
+    "gross_profit_ltv_usd": 100,
+    "target_maximum_cac_usd": 30,
+    "ltv_cac_ratio_at_target": 3.3333333333333335,
+    "sensitivity_monthly_churn": 0.15,
+    "sensitivity_gross_profit_ltv_usd": 53.333333333333336,
+    "ltv_method": "Monthly price × gross margin ÷ monthly churn; assumes constant margin/churn, no discounting, and no expansion revenue.",
+    "acquisition_test": "Search-oriented moving-in finance guides → free comparison → partner invitation → mutually confirmed plan → another month. This channel has not been tested.",
+    "future_study": "Recruit 10 consenting couples for 30 days; examine two-person activation, repeat usage, and willingness to pay. Recruitment and study instrumentation are not completed."
+  },
+  "assets": {
+    "screenshots": "Existing docs/images application screenshots; fictional Alex and Jordan demo data.",
+    "logo": "Existing web/public/favicon.svg.",
+    "fonts": "Manrope from Google Fonts; local font files included with the SIL Open Font License. Existing app font family, Cyrillic-capable files for the Russian deck.",
+    "qr_target": "https://first-month-six.vercel.app"
+  }
+}

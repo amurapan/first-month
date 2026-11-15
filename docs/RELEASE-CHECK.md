@@ -2,7 +2,7 @@
 
 [Project overview](../README.md) · [Live product](https://first-month-six.vercel.app) · [Development](DEVELOPMENT.md)
 
-The engineering pass is complete for the scenarios below. The remaining submission deliverable is the pitch deck and the captain's submission. Real-user feedback can still reveal improvements beyond these software checks.
+The engineering pass is complete for the scenarios below. The [10-slide PDF pitch](pitch/first-month-pitch.pdf) is prepared; the captain's submission remains. Real-user feedback can still reveal improvements beyond these software checks.
 
 ## Requirements from the supplied hackathon slides
 
@@ -17,7 +17,7 @@ The review used all five supplied slide photographs. This is a transcription of 
 | Core value must work with real inputs | Users enter their own numbers and answers. Deterministic calculations, versioned approvals, expenses, and contextual model calls are functional. Sample data is labelled. |
 | Public source repository | [amurapan/first-month](https://github.com/amurapan/first-month) was accessible without authentication; GitHub reported `private: false`. |
 | Production URL | [first-month-six.vercel.app](https://first-month-six.vercel.app) is reachable without an access request. |
-| PDF pitch deck, up to 10 slides | **Remaining.** The deck should cover the judging criteria below. |
+| PDF pitch deck, up to 10 slides | **Prepared:** [10-slide PDF](pitch/first-month-pitch.pdf), with actual app screenshots, demo QR, source links, and explicitly hypothetical business figures. |
 | One submission per team, by the captain | **Remaining.** Submit the PDF, production URL, and GitHub URL together. |
 
 The slides describe a 24-hour event. The captain must use the organizer's actual deadline and any subsequent clarifications; source-code checks cannot establish timing eligibility.
@@ -29,7 +29,7 @@ The slides describe a 24-hour event. The captain must use the organizer's actual
 | 40% | Product & engineering | Working deployed flows, persistent records, exact-cent domain tests, API checks, two-role browser checks, recoverable errors, and a public repository. |
 | 20% | Value & retention | Budget changes, recording shared bills, purchase decisions, weekly actions, and month-end review provide repeat-use scenarios. Actual retention and willingness to pay remain unmeasured. |
 | 15% | Problem & user | Narrow moving-in scenario; seven public accounts recorded in [research](../research/findings-ru.txt). No verified participant interviews. |
-| 15% | Business potential | Household subscription is a hypothesis. The deck still needs explicit market-size and acquisition/retention assumptions; no measured CAC, LTV, conversion, or $100M ARR claim is made. |
+| 15% | Business potential | The [deck](pitch/README.md) includes sourced broad market context, a hypothetical $10/month household subscription, an illustrative $100M ARR scale calculation, acquisition plans, and LTV sensitivity assumptions. None is a measured CAC, LTV, conversion, retention, or revenue result. |
 | 10% | Originality | Specific two-person workflow joining private perspectives, explicit approvals, and planned-versus-recorded money. Competitors exist; uniqueness is not claimed. |
 
 ## Functional verification
@@ -79,11 +79,11 @@ Core commands are in [Development](DEVELOPMENT.md#verification). The browser acc
 
 The [screenshot script](../scripts/capture-screenshots.cjs) captures the actual interface from a temporary sample household. The README images contain fictional data and no personal access tokens.
 
-## Still to submit
+## Submission package
 
-- PDF pitch deck, maximum 10 slides: problem, audience, live workflow, value, return loop, market/business assumptions, differentiation, and validation status.
+- [PDF pitch deck](pitch/first-month-pitch.pdf), exactly 10 slides: problem, audience, live workflow, value, return loop, market/business assumptions, differentiation, and validation status. [Editable source, speaking notes, and sources](pitch/README.md) are included. PDF checks cover page count, 16:9 dimensions, selectable Cyrillic text, embedded fonts, link annotations, and QR decoding; all pages were visually reviewed.
 - Production URL: `https://first-month-six.vercel.app`
 - Public source: `https://github.com/amurapan/first-month`
-- Captain's submission before the organizer's deadline.
+- **Remaining:** captain's submission before the organizer's deadline. Preparing and publishing these files does not submit the entry.
 
 Actual payment collection remains intentionally disabled. Human usability, demand, and willingness-to-pay validation are future product work, not completed research.

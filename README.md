@@ -8,6 +8,8 @@
     &nbsp; · &nbsp;
     <a href="#try-it-in-two-minutes">Try the demo</a>
     &nbsp; · &nbsp;
+    <a href="docs/pitch/first-month-pitch.pdf">Pitch deck</a>
+    &nbsp; · &nbsp;
     <a href="#run-it-locally">Run locally</a>
     &nbsp; · &nbsp;
     <a href="docs/RELEASE-CHECK.md">Release checks</a>
