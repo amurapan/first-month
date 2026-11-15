@@ -658,6 +658,9 @@ export default function SpaceApp({ id }: { id: string }) {
                   onSelect={(id) => navigate("decisions", id)}
                   act={act}
                   onGuide={(item) => guide("decision", item)}
+                  onInvite={invite}
+                  onMonth={() => navigate("months")}
+                  onCheckIn={() => navigate("reviews")}
                   onError={setError}
                   planLink={planLink}
                 />
@@ -668,6 +671,8 @@ export default function SpaceApp({ id }: { id: string }) {
                   busy={busy}
                   act={act}
                   onGuide={(item) => guide("review", item)}
+                  onInvite={invite}
+                  onDecision={(id) => navigate("decisions", id)}
                   onMonth={() => navigate("months")}
                   onError={setError}
                   planLink={planLink}

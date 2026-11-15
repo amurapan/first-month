@@ -600,6 +600,7 @@ export async function mutateWorkspace(request: Request, id: string) {
       rid = id + ":" + week;
     const answer = z
       .object({
+        topic: z.string().trim().max(240).optional(),
         feeling: z.enum(["comfortable", "mixed", "stretched"]),
         worked: z.string().trim().max(1200),
         change: z.string().trim().max(1200),

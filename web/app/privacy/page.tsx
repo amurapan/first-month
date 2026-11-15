@@ -54,11 +54,11 @@ export default function Privacy() {
         text, category names and calculated indicators (such as which categories
         exceeded the plan or whether a transfer awaits confirmation) to Groq, or
         a configured OpenAI alternative. Structured income, expense amounts,
-        balances, and numeric comfort limits are excluded. Anything you type
-        into a note is sent as written, so avoid information you do not want
-        processed by the provider. We request that generated responses are not
-        stored as response objects; the provider’s own processing policies still
-        apply. Generating a recap is optional.
+        balances, and numeric comfort limits are excluded. Notes and selected
+        check-in topics are sent as shared and can include amounts, so avoid
+        information you do not want processed by the provider. We request that
+        generated responses are not stored as response objects; the provider’s
+        own processing policies still apply. Generating a recap is optional.
       </p>
       <h2>Storage and hosting</h2>
       <p>

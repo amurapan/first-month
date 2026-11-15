@@ -1,4 +1,5 @@
 "use client";
+import { ConversationSteps, WaitingForPartner } from "./conversation-flow";
 import { AnimatedMoney } from "@/components/motion";
 import { useState } from "react";
 import {
@@ -48,6 +49,9 @@ type Props = {
   onGuide: (item: DecisionView) => Promise<unknown>;
   onError: (message: string) => void;
   planLink: (step?: number) => string;
+  onInvite: () => void;
+  onMonth: () => void;
+  onCheckIn: () => void;
 };
 const starters = [
   {
@@ -69,7 +73,7 @@ const starters = [
     label: "A monthly cost",
   },
 ];
-const statusLabel = (item: DecisionView) =>
+const statusLabel = (item: DecisionView, state: SpaceState) =>
   item.stale
     ? "Needs a fresh look"
     : item.status === "agreed"
@@ -82,7 +86,13 @@ const statusLabel = (item: DecisionView) =>
             ? "Review the proposal"
             : item.bothAnswered
               ? "Ready to compare"
-              : "Add both perspectives";
+              : !state.bothShared
+                ? "Income sharing needed"
+                : item.answers[state.role]?.shared
+                  ? "Waiting for your partner"
+                  : item.answers[state.role]
+                    ? "Your answer is private"
+                    : "Add your perspective";
 export default function Decisions(props: Props) {
   const { state, busy, selected, onSelect, act, onError } = props,
     [filter, setFilter] = useState("active"),
@@ -119,10 +129,10 @@ export default function Decisions(props: Props) {
       <div className="life-heading heading-with-action">
         <div>
           <p className="eyebrow">THE THINGS YOU DECIDE TOGETHER</p>
-          <h1>A little space before a big yes.</h1>
+          <h1>Decide before you buy.</h1>
           <p>
-            Bring a purchase or recurring cost into the open. Find an option you
-            both feel ready to choose.
+            Add a purchase, compare what each of you can contribute, and agree
+            on a plan together. Record what you actually pay in Spending.
           </p>
         </div>
         <button className="button primary" onClick={() => onSelect("new")}>
@@ -201,7 +211,7 @@ export default function Decisions(props: Props) {
                       : "")
                   }
                 >
-                  {statusLabel(d)}
+                  {statusLabel(d, state)}
                 </span>
               </div>
               <div className="decision-list-amount">
@@ -352,8 +362,8 @@ function CreateDecision({
           perspective comes next and has its own sharing choice.
         </p>
         <div className="form-actions">
-          <button className="button primary" disabled={busy}>
-            {busy ? "Starting…" : "Make room for both sides"}
+          <button className="button primary" disabled={busy || draft.conflict}>
+            {busy ? "Starting…" : "Continue to my perspective"}
             <ArrowRight size={17} />
           </button>
         </div>
@@ -371,13 +381,36 @@ function DecisionDetail({
   onGuide,
   onError,
   planLink,
+  onInvite,
+  onMonth,
+  onCheckIn,
 }: Props & { item: DecisionView }) {
   const pair = names(state),
     own = item.answers[state.role] as DecisionAnswer | undefined;
-  const [editing, setEditing] = useState(!own),
-    [comparing, setComparing] = useState(!item.proposal),
+  const [editing, setEditing] = useState(false),
+    [exploring, setComparing] = useState(false),
     [custom, setCustom] = useState(false);
   const closed = ["completed", "archived"].includes(item.status);
+  const comparing = !item.proposal || item.stale || exploring;
+  const answering = !closed && (editing || !own);
+  const step = closed
+    ? 3
+    : answering || !item.bothAnswered
+      ? 0
+      : comparing
+        ? 1
+        : item.status === "agreed"
+          ? 3
+          : 2;
+  const activeAgreement = item.resolutions.find(
+    (x) => x.version === item.proposal?.version,
+  );
+  const fullySaved =
+    !item.proposal ||
+    item.proposal.months <= 1 ||
+    (!!activeAgreement &&
+      (item.funding?.A || 0) >= activeAgreement.contributions[0] &&
+      (item.funding?.B || 0) >= activeAgreement.contributions[1]);
   let proposalImpact: ReturnType<typeof impactForOption> | null = null;
   if (item.proposal && item.bothAnswered && !closed) {
     try {
@@ -403,18 +436,74 @@ function DecisionDetail({
         <div>
           <strong>
             <AnimatedMoney value={item.proposal?.amount ?? item.amount} enter />
-            {item.kind === "recurring" && <small>/ month</small>}
+            <small>
+              {item.kind === "recurring" ? "/ month planned" : " planned cost"}
+            </small>
           </strong>
           <span
             className={
               "status-tag " + (item.status === "agreed" ? "green" : "")
             }
           >
-            {statusLabel(item)}
+            {statusLabel(item, state)}
           </span>
         </div>
         {item.context && <p>{item.context}</p>}
       </div>
+      {item.status !== "archived" && (
+        <ConversationSteps
+          steps={[
+            "Your perspective",
+            "Compare options",
+            "Agree together",
+            "Follow through",
+          ]}
+          current={step}
+        />
+      )}
+      {item.status === "completed" && item.kind === "purchase" && (
+        <section className="surface conversation-outcome">
+          <p className="overline">DECISION COMPLETED</p>
+          <h2>
+            {item.proposal && item.proposal.months > 1
+              ? "Your saving plan is complete."
+              : "You marked this as purchased."}
+          </h2>
+          <p>
+            This closes the decision. It does not create an expense. If you have
+            paid, record the actual amount and who paid in Spending.
+          </p>
+          <div className="form-actions">
+            <button className="button primary" onClick={onMonth}>
+              Open Spending <ArrowRight size={17} />
+            </button>
+            <button className="text-button" onClick={onCheckIn}>
+              Talk about it at check-in
+            </button>
+          </div>
+        </section>
+      )}
+      {!closed &&
+        !answering &&
+        own &&
+        !item.bothAnswered &&
+        !(
+          own.shared && item.answers[state.role === "A" ? "B" : "A"]?.shared
+        ) && (
+          <WaitingForPartner
+            name={state.partner.name}
+            privateAnswer={!own.shared}
+            busy={busy}
+            onShare={() =>
+              void act("answerDecision", {
+                id: item.id,
+                revision: item.revision,
+                answer: { ...own, shared: true },
+              })
+            }
+            onInvite={onInvite}
+          />
+        )}
       {item.status === "completed" && item.kind === "recurring" && (
         <div className="notice">
           <CheckCheck size={20} />
@@ -460,7 +549,7 @@ function DecisionDetail({
           </a>
         </div>
       )}
-      {!closed && (editing || !own) ? (
+      {answering ? (
         <DecisionAnswerForm
           key={item.id + ":answer"}
           item={item}
@@ -471,7 +560,7 @@ function DecisionDetail({
           onError={onError}
         />
       ) : (
-        <details className="decision-perspectives" open={!item.bothAnswered}>
+        <details className="decision-perspectives">
           <summary>
             Your two perspectives
             <span>
@@ -546,28 +635,47 @@ function DecisionDetail({
           </section>
         </details>
       )}
-      {item.bothAnswered && !closed && (
+      {item.bothAnswered && !closed && !answering && (
         <>
+          {exploring && item.proposal && !item.stale && (
+            <button
+              className="text-button back-link"
+              onClick={() => {
+                setComparing(false);
+                setCustom(false);
+              }}
+            >
+              Back to saved proposal
+            </button>
+          )}
           {comparing || !item.proposal || item.stale ? (
             custom ? (
-              <ProposalBuilder
-                key={
-                  item.id +
-                  ":" +
-                  item.proposal?.version +
-                  ":" +
-                  state.planVersion
-                }
-                item={item}
-                state={state}
-                busy={busy}
-                act={act}
-                onDone={() => {
-                  setComparing(false);
-                  setCustom(false);
-                }}
-                onError={onError}
-              />
+              <div>
+                <button
+                  className="text-button back-link"
+                  onClick={() => setCustom(false)}
+                >
+                  <ArrowLeft size={16} /> Back to calculated options
+                </button>
+                <ProposalBuilder
+                  key={
+                    item.id +
+                    ":" +
+                    item.proposal?.version +
+                    ":" +
+                    state.planVersion
+                  }
+                  item={item}
+                  state={state}
+                  busy={busy}
+                  act={act}
+                  onDone={() => {
+                    setComparing(false);
+                    setCustom(false);
+                  }}
+                  onError={onError}
+                />
+              </div>
             ) : (
               <DecisionOptions
                 state={state}
@@ -581,146 +689,167 @@ function DecisionDetail({
           ) : null}
         </>
       )}
-      {item.proposal && (!comparing || closed) && (
-        <section className="surface proposal-summary">
-          <div className="section-heading">
-            <div>
-              <p className="overline">
-                PROPOSAL {item.proposal.version} · MONTHLY PLAN{" "}
-                {item.proposal.planVersion}
-              </p>
-              <h2>
-                {item.status === "completed"
-                  ? "A decision followed through."
-                  : item.status === "agreed"
-                    ? "You both said yes."
-                    : "An option to consider together."}
-              </h2>
-            </div>
-            {!closed && (
-              <button
-                className="text-button"
-                onClick={() => setComparing(true)}
-              >
-                Explore another option
-              </button>
-            )}
-          </div>
-          <div className="proposal-summary-amounts">
-            {pair.map((name, i) => {
-              const p = item.proposal!;
-              const res = item.resolutions.find((x) => x.version === p.version);
-              let value = res?.contributions[i];
-              if (
-                value === undefined &&
-                item.bothAnswered &&
-                state.calculation
-              ) {
-                try {
-                  value = impactForOption(state, item, p).contributions[i];
-                } catch {}
-              }
-              return (
-                <div key={name + i}>
-                  <span>{name} contributes</span>
-                  <strong>
-                    {value === undefined ? "Share both answers" : money(value)}
-                  </strong>
-                  <small>
-                    {p.months > 1
-                      ? "saved over " + p.months + " months"
-                      : item.kind === "recurring"
-                        ? "each month"
-                        : "one time"}
-                  </small>
-                </div>
-              );
-            })}
-          </div>
-          <p>{item.proposal.notes || "No extra conditions added."}</p>
-          <p className="small-text muted">
-            <CalendarDays size={14} />
-            Revisit on {fullDate(item.proposal.reviewDate)} ·{" "}
-            {item.proposal.method === "proportional"
-              ? "Split by income"
-              : item.proposal.method === "custom"
-                ? "Your own split"
-                : "Equal contributions"}
-          </p>
-          {proposalImpact && (
-            <OptionImpact projection={proposalImpact} pair={pair} />
-          )}
-          <Approval state={state} approvals={item.proposal.approvals} />
-          {!closed && item.bothAnswered && !item.stale && (
-            <div className="form-actions">
-              {item.status === "agreed" ? (
+      {item.proposal &&
+        !answering &&
+        ((!comparing && item.bothAnswered) || closed) && (
+          <section className="surface proposal-summary">
+            <div className="section-heading">
+              <div>
+                <p className="overline">
+                  {item.status === "agreed"
+                    ? "AGREED PLAN · PAYMENTS LIVE IN SPENDING"
+                    : closed
+                      ? "YOUR SAVED AGREEMENT"
+                      : "REVIEW THIS PROPOSAL"}
+                </p>
+                <h2>
+                  {item.status === "completed"
+                    ? "A decision followed through."
+                    : item.status === "agreed"
+                      ? "You both said yes."
+                      : "An option to consider together."}
+                </h2>
+              </div>
+              {!closed && (
                 <button
-                  className="button primary"
-                  disabled={busy}
-                  onClick={() =>
-                    act(
-                      item.kind === "recurring"
-                        ? "applyRecurring"
-                        : "completeDecision",
-                      {
+                  className="text-button"
+                  onClick={() => setComparing(true)}
+                >
+                  Explore another option
+                </button>
+              )}
+            </div>
+            {!proposalImpact && (
+              <div className="proposal-summary-amounts">
+                {pair.map((name, i) => {
+                  const p = item.proposal!;
+                  const res = item.resolutions.find(
+                    (x) => x.version === p.version,
+                  );
+                  let value = res?.contributions[i];
+                  if (
+                    value === undefined &&
+                    item.bothAnswered &&
+                    state.calculation
+                  ) {
+                    try {
+                      value = impactForOption(state, item, p).contributions[i];
+                    } catch {}
+                  }
+                  return (
+                    <div key={name + i}>
+                      <span>{name} contributes</span>
+                      <strong>
+                        {value === undefined
+                          ? "Share both answers"
+                          : money(value)}
+                      </strong>
+                      <small>
+                        {p.months > 1
+                          ? "saved over " + p.months + " months"
+                          : item.kind === "recurring"
+                            ? "each month"
+                            : "one time"}
+                      </small>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {item.proposal.notes && <p>{item.proposal.notes}</p>}
+            <p className="small-text muted">
+              <CalendarDays size={14} />
+              Revisit on {fullDate(item.proposal.reviewDate)} ·{" "}
+              {item.proposal.method === "proportional"
+                ? "Split by income"
+                : item.proposal.method === "custom"
+                  ? "Your own split"
+                  : "Equal contributions"}
+            </p>
+            {proposalImpact && (
+              <OptionImpact projection={proposalImpact} pair={pair} />
+            )}
+            <Approval state={state} approvals={item.proposal.approvals} />
+            {!closed && item.bothAnswered && !item.stale && (
+              <div className="form-actions">
+                {item.status === "agreed" ? (
+                  <button
+                    className="button primary"
+                    disabled={busy || !fullySaved}
+                    onClick={() =>
+                      act(
+                        item.kind === "recurring"
+                          ? "applyRecurring"
+                          : "completeDecision",
+                        {
+                          id: item.id,
+                          revision: item.revision,
+                        },
+                      )
+                    }
+                  >
+                    <CheckCheck size={18} />
+                    {item.kind === "recurring"
+                      ? "Add to our monthly plan"
+                      : item.proposal.months > 1
+                        ? "Mark saving plan completed"
+                        : "Mark as purchased"}
+                  </button>
+                ) : item.proposal.approvals[state.role] !== "accepted" ? (
+                  <button
+                    className="button primary"
+                    disabled={busy}
+                    onClick={() =>
+                      act("approveDecision", {
                         id: item.id,
                         revision: item.revision,
-                      },
-                    )
-                  }
-                >
-                  <CheckCheck size={18} />
-                  {item.kind === "recurring"
-                    ? "Add to our monthly plan"
-                    : item.proposal.months > 1
-                      ? "Mark saving plan completed"
-                      : "Mark as purchased"}
-                </button>
-              ) : item.proposal.approvals[state.role] !== "accepted" ? (
+                        proposalVersion: item.proposal!.version,
+                        decision: "accepted",
+                      })
+                    }
+                  >
+                    <Check size={17} />I agree to this proposal
+                  </button>
+                ) : (
+                  <span className="accepted-message">
+                    <Check size={17} />
+                    Your yes is saved. Waiting for your partner.
+                  </span>
+                )}
                 <button
-                  className="button primary"
+                  className="text-button"
                   disabled={busy}
                   onClick={() =>
                     act("approveDecision", {
                       id: item.id,
                       revision: item.revision,
                       proposalVersion: item.proposal!.version,
-                      decision: "accepted",
+                      decision: "changes",
                     })
                   }
                 >
-                  <Check size={17} />I agree to this proposal
+                  I’d like a change
                 </button>
-              ) : (
-                <span className="accepted-message">
-                  <Check size={17} />
-                  Your yes is saved. Waiting for your partner.
-                </span>
-              )}
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() =>
-                  act("approveDecision", {
-                    id: item.id,
-                    revision: item.revision,
-                    proposalVersion: item.proposal!.version,
-                    decision: "changes",
-                  })
-                }
-              >
-                I’d like a change
-              </button>
-            </div>
-          )}
-          <p className="fine-print">
-            This records your choice without moving money. Adding a recurring
-            cost updates your monthly plan and asks both of you to confirm its
-            new version.
-          </p>
-        </section>
-      )}
-      {item.status === "agreed" &&
+              </div>
+            )}
+            {item.status === "agreed" && !fullySaved && (
+              <p className="fine-print">
+                Record both saved contributions below before completing the
+                saving plan.
+              </p>
+            )}
+            <p className="fine-print">
+              {closed
+                ? "This is your saved decision. Payments are recorded separately in Spending."
+                : item.kind === "recurring"
+                  ? "Adding this cost updates your planned monthly budget. Record payments separately in Spending."
+                  : "This is a planned purchase, not a paid expense. Mark it complete only after you follow through, then record any payment in Spending."}
+            </p>
+          </section>
+        )}
+      {!answering &&
+        !comparing &&
+        item.status === "agreed" &&
         item.kind === "purchase" &&
         item.proposal &&
         item.proposal.months > 1 && (
@@ -732,7 +861,7 @@ function DecisionDetail({
             onError={onError}
           />
         )}
-      {item.bothAnswered && !closed && (
+      {item.bothAnswered && !closed && !answering && (
         <details className="conversation-help">
           <summary>
             Find the words for this conversation<span>Optional</span>

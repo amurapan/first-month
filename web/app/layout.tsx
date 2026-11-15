@@ -7,6 +7,7 @@ import "./onboarding.css";
 import "./navigation.css";
 import "./friendly.css";
 import "./spending.css";
+import "./conversations.css";
 export const metadata: Metadata = {
   title: "First Month — Shared bills. A plan for both of you.",
   description:

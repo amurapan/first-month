@@ -213,6 +213,7 @@ await mutate(A, "answerReview", {
   revision: review.revision,
   answer: {
     feeling: "mixed",
+    topic: "PRIVATE TOPIC A",
     worked: "PRIVATE WEEK A",
     change: "Discuss groceries",
     shared: false,
@@ -221,6 +222,26 @@ await mutate(A, "answerReview", {
 s = await read(B);
 review = s.householdReviews.find((x) => x.week === s.currentWeek);
 assert.equal("worked" in review.answers.A, false);
+assert.equal("topic" in review.answers.A, false);
+const privateReview = (await read(A)).householdReviews.find(
+  (x) => x.week === s.currentWeek,
+);
+assert.equal(privateReview.answers.A.topic, "PRIVATE TOPIC A");
+await mutate(
+  A,
+  "answerReview",
+  {
+    revision: privateReview.revision,
+    answer: {
+      feeling: "mixed",
+      worked: "",
+      change: "",
+      shared: true,
+      topic: "x".repeat(241),
+    },
+  },
+  400,
+);
 assert.equal(review.guide, null);
 await mutate(B, "answerReview", {
   revision: review.revision,
@@ -237,6 +258,7 @@ await mutate(A, "answerReview", {
   revision: review.revision,
   answer: {
     feeling: "mixed",
+    topic: "PRIVATE TOPIC A",
     worked: "PRIVATE WEEK A",
     change: "Discuss groceries",
     shared: true,
@@ -245,6 +267,7 @@ await mutate(A, "answerReview", {
 s = await read(A);
 review = s.householdReviews.find((x) => x.week === s.currentWeek);
 assert.equal(review.bothAnswered, true);
+assert.equal(review.answers.A.topic, "PRIVATE TOPIC A");
 s = await mutate(A, "reviewAction", {
   id: review.id,
   revision: review.revision,

@@ -1,0 +1,311 @@
+/* Keep each conversation on its current task, with the details close by. */
+.conversation-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 22px 0 28px;
+  list-style: none;
+}
+.conversation-steps li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 8px;
+  border-top: 2px solid var(--line);
+  color: var(--muted);
+  min-width: 0;
+}
+.conversation-steps li > span {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  border-radius: 50%;
+  background: #eae6dc;
+  font-size: 11px;
+}
+.conversation-steps strong {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.conversation-steps [aria-current] {
+  color: var(--ink);
+  border-color: #a84f37;
+}
+.conversation-steps [aria-current] > span {
+  background: #a84f37;
+  color: white;
+}
+.conversation-steps [data-done="true"] {
+  border-color: #7b8b67;
+}
+.conversation-steps [data-done="true"] > span {
+  background: #e2e9d8;
+  color: #4c6240;
+}
+.conversation-steps:focus-visible {
+  outline: 2px solid #a84f37;
+  outline-offset: 4px;
+  border-radius: 5px;
+}
+.conversation-wait,
+.conversation-outcome,
+.checkin-next {
+  padding: 26px 30px;
+  background: #f4f0e5;
+  margin-bottom: 24px;
+}
+.conversation-wait {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+}
+.conversation-wait > div {
+  max-width: 530px;
+}
+.conversation-wait h2,
+.conversation-outcome h2,
+.checkin-next h2 {
+  font-size: 25px;
+  line-height: 1.25;
+  letter-spacing: -0.6px;
+  margin: 12px 0;
+}
+.conversation-wait p:not(.overline),
+.conversation-outcome p:not(.overline),
+.checkin-next p:not(.overline) {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.conversation-wait .button {
+  flex-shrink: 0;
+}
+.conversation-steps ~ .decision-discovery,
+.decision-studio .decision-discovery {
+  margin: 18px 0;
+}
+.decision-studio .decision-discovery h2 {
+  font-size: 30px;
+}
+.comparison-hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 18px 0;
+}
+.impact-schedule {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.impact-schedule > summary,
+.checkin-positive > summary {
+  padding: 16px 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.impact-schedule .projection-timeline {
+  margin-top: 0;
+}
+.proposal-summary .option-impact {
+  margin: 20px 0;
+}
+.conversation-steps ~ .proposal-summary .section-heading h2 {
+  font-size: 27px;
+}
+.checkin-topics {
+  border: 0;
+  padding: 0;
+  margin: 24px 0 16px;
+  min-width: 0;
+}
+.checkin-topics legend {
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+.checkin-topics > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.checkin-topics button {
+  padding: 10px 13px;
+  min-height: 44px;
+  border: 1px solid #d8cfbf;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.checkin-topics button:hover,
+.checkin-topics button[aria-pressed="true"] {
+  background: #f3dfd2;
+  border-color: #a84f37;
+}
+.review-form > h3 {
+  font-size: 15px;
+  margin: 24px 0 12px;
+}
+.checkin-positive {
+  margin: 0 0 14px;
+  border-top: 1px solid var(--line);
+}
+.checkin-positive summary span {
+  margin-left: 10px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+.review-topic-saved {
+  padding-bottom: 14px;
+  border-bottom: 1px solid #cabdb366;
+}
+.review-topic-saved strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+.checkin-destinations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+  margin: 22px 0 30px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.checkin-destinations > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.weekly-action > .status-tag {
+  margin: 16px 0 0;
+}
+.weekly-history .weekly-action {
+  margin-top: 20px;
+  background: var(--paper);
+}
+.review-perspectives > summary span {
+  color: #626250;
+}
+.conversation-steps ~ .weekly-action,
+.conversation-steps ~ .checkin-next {
+  animation: conversation-arrive 0.24s ease-out both;
+}
+@keyframes conversation-arrive {
+  from {
+    opacity: 0.4;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 700px) {
+  .conversation-steps {
+    gap: 5px;
+    margin: 20px 0;
+  }
+  .conversation-steps li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 2px;
+  }
+  .conversation-steps strong {
+    font-size: 10px;
+  }
+  .conversation-wait {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .conversation-wait,
+  .conversation-outcome,
+  .checkin-next {
+    padding: 22px 20px;
+  }
+  .conversation-wait h2,
+  .conversation-outcome h2,
+  .checkin-next h2 {
+    font-size: 23px;
+  }
+  .conversation-wait .button {
+    width: 100%;
+  }
+  .decision-studio .option-choices {
+    display: grid;
+    grid-template-columns: 1fr;
+    overflow: visible;
+    padding: 0;
+    margin: 0 0 20px;
+  }
+  .decision-studio .option-choice {
+    min-width: 0;
+    padding: 16px 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 12px;
+  }
+  .decision-studio .option-choice-top {
+    grid-column: 1/-1;
+    margin-bottom: 10px;
+  }
+  .decision-studio .option-choice > strong {
+    font-size: 16px;
+    align-self: center;
+    margin: 0;
+  }
+  .decision-studio .option-choice-price {
+    font-size: 25px;
+    margin: 0;
+    text-align: right;
+  }
+  .decision-studio .option-choice-price small {
+    display: block;
+    font-size: 9px;
+    margin: 4px 0 0;
+  }
+  .decision-studio .option-mini-split {
+    grid-column: 1/-1;
+    margin: 14px 0 12px;
+  }
+  .decision-studio .option-choice-bottom {
+    grid-column: 1/-1;
+    padding-top: 10px;
+    font-size: 10px;
+  }
+  .decision-studio .option-badge {
+    font-size: 10px;
+  }
+  .decision-studio .decision-discovery h2 {
+    font-size: 26px;
+  }
+  .decision-studio .decision-discovery p:last-child {
+    font-size: 12px;
+  }
+  .checkin-destinations {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .conversation-steps ~ .weekly-action,
+  .conversation-steps ~ .checkin-next {
+    animation: none;
+  }
+}
+@media print {
+  .conversation-steps,
+  .checkin-destinations {
+    display: none;
+  }
+}

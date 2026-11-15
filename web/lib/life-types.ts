@@ -67,6 +67,7 @@ export type DecisionView = Omit<HouseholdDecision, "answers" | "guide"> & {
   guide: string | null;
 };
 export type ReviewAnswer = {
+  topic?: string;
   feeling: "comfortable" | "mixed" | "stretched";
   worked: string;
   change: string;
