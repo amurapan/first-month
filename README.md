@@ -8,7 +8,7 @@
     &nbsp; · &nbsp;
     <a href="#try-it-in-two-minutes">Try the demo</a>
     &nbsp; · &nbsp;
-    <a href="docs/DEVELOPMENT.md">Run locally</a>
+    <a href="#run-it-locally">Run locally</a>
     &nbsp; · &nbsp;
     <a href="docs/RELEASE-CHECK.md">Release checks</a>
   </p>
@@ -21,19 +21,26 @@
 
 Rent is only the beginning. Two people also need to decide which costs are shared, how much each contributes, who pays, and what happens when the plan changes.
 
-**First Month turns those decisions into a shared routine.** Each person adds their own perspective, compares the numbers, and confirms the same version. Afterward, they can record actual spending, plan a purchase, and choose a concrete next step at their weekly check-in.
+**First Month helps US couples moving in together turn those decisions into a shared routine.** Each person adds their own perspective, compares the numbers, and confirms the same version. Afterward, they can record actual spending, plan a purchase, and choose a concrete next step at their weekly check-in.
 
 No account creation. No bank connection. Each partner has their own private access link.
 
 ## Try it in two minutes
 
 1. **[Open First Month](https://first-month-six.vercel.app)** and choose **Try a sample household**. Alex and Jordan's data is explicitly fictional; your demo gets its own space.
-2. In **Our budget**, switch between equal and income-based contributions. See what each person contributes and has left.
+2. In **Our budget**, switch between equal and income-based contributions. The sample has $3,400 in shared costs and monthly incomes of $6,000 and $3,000. Equal contributions are **$1,700 each**; income-based contributions are **$2,266.67 for Alex and $1,133.33 for Jordan**.
 3. Open **Decisions → A sofa for our living room**. Compare buying now, saving first, and changing the price or split. Propose an option.
 4. Use **Switch to Jordan** in the sample banner to try the other person's perspective and confirmation.
 5. Visit **Spending** for recorded costs, or **Check-in** to turn a conversation into one action with an owner and a date.
 
 To try your own numbers, choose **Compare our costs**. The starting comparison takes two steps; saving it creates a space you can invite your partner into. Save your personal link somewhere private.
+
+## How it works
+
+1. **Enter a starting picture.** Add your monthly take-home income, an optional estimate of your partner's income, and shared costs such as rent, utilities, and groceries. Compare contributions immediately in the browser.
+2. **Bring in the other person.** Save the comparison and send the invitation link. Your partner joins with their own private access link and supplies their own numbers; your estimate never becomes their answer. Each person chooses when to share.
+3. **Agree on the same terms.** Compare equal, income-based, or custom contributions, refine personal bills and savings preferences, and review how much each person has left. Both partners confirm the same plan version. The result is a saved, printable agreement.
+4. **Keep using the agreement.** Record actual expenses and reimbursements, compare a purchase against existing commitments, and finish a weekly check-in with an agreed action, owner, and date. Review the month together and prepare the next one.
 
 ## From the first plan to the next month
 
@@ -95,25 +102,58 @@ To try your own numbers, choose **Compare our costs**. The starting comparison t
 
 Optional generated guides use the context both partners have shared to suggest **three discussion questions and an opening sentence**. Budget arithmetic and approvals stay in application code.
 
-Groq is configured on the server; an OpenAI alternative is supported. The interface shows a real pending state, a generated result, or a recoverable error. No canned response substitutes for an unavailable model. Notes and selected topics are sent only when a guide is requested; free-text context can contain amounts.
+The server supports Groq and an optional OpenAI alternative. The interface shows a real pending state, a generated result, or a recoverable error. No canned response substitutes for an unavailable model. Notes and selected topics are sent only when a guide is requested; free-text context can contain amounts.
 
-## Under the hood
+## Technologies
 
 | Layer | Implementation |
 | --- | --- |
-| Interface | React 19, TypeScript, App Router conventions, local fonts, responsive CSS |
-| Application runtime | Vinext on a Cloudflare Worker |
-| Persistence | Cloudflare D1, schema migrations, revision-checked writes |
+| Interface | React 19, TypeScript, App Router conventions, Lucide icons, local fonts, responsive CSS |
+| Application runtime | Vinext, Vite, Cloudflare Workers; Wrangler for local runtime and database tooling |
+| Persistence | Cloudflare D1 (SQLite), Drizzle schema definitions and SQL migrations; prepared SQL statements and revision-checked writes |
+| Validation | Zod for request data; schema-constrained JSON and application validation for generated guides |
 | Public URL | Vercel entry point forwarding to the existing Worker |
 | Money logic | Framework-independent JavaScript modules and exact-cent calculations |
-| Conversation generation | Groq; optional OpenAI alternative; validated structured output |
+| Conversation generation | Groq Responses API; default model `openai/gpt-oss-120b`, configurable with `GROQ_MODEL`. Optional OpenAI Responses API with an explicitly configured `OPENAI_MODEL` |
 | Access | Separate random personal tokens, hashed server-side; single-use invitation |
 
-Read the [architecture and boundaries](docs/ARCHITECTURE.md) for data visibility, concurrency, hosting, and financial assumptions.
+Dependency versions are recorded in [web/package.json](web/package.json) and its [lockfile](web/package-lock.json). Provider selection is implemented in [guide.js](web/lib/guide.js): Groq takes precedence when its key is present; OpenAI requires both its key and model. There is no automatic provider failover.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser[Browser: React + TypeScript] --> Vercel[Vercel public entry point]
+  Vercel --> Worker[Vinext on Cloudflare Workers]
+  Worker --> DB[(Cloudflare D1)]
+  Browser --> Logic[Deterministic money logic]
+  Worker --> Logic
+  Worker -. Requested conversation guide .-> Model[Groq or configured OpenAI]
+```
+
+- **Pages and components** in [web/app](web/app) and [web/components](web/components) collect inputs and display results. The initial comparison and unsaved drafts can stay in the browser.
+- **HTTP endpoints** in [web/app/api](web/app/api) authorize each role and call [room.ts](web/lib/room.ts), [life.ts](web/lib/life.ts), and [months.ts](web/lib/months.ts) for budgets, decisions, check-ins, and recorded spending. Saved records persist in D1; revision checks prevent stale edits and approvals.
+- **Calculation modules** in [web/lib/domain](web/lib/domain) calculate allocations, purchase projections, and settlements. Optional [conversation generation](web/lib/conversation.ts) uses shared context and never controls arithmetic or approvals.
+- **Hosting** uses [Vercel rewrites](deploy/vercel/vercel.json) to the existing Worker backend. Vercel is the public entry point, not a separate database or application backend.
+
+See [architecture and boundaries](docs/ARCHITECTURE.md) for access rules, concurrency, and financial assumptions.
+
+## Data and integrations
+
+| Source or service | What the application uses it for |
+| --- | --- |
+| User-entered data | Income, shared costs, optional personal bills and savings preferences, conversation answers, purchases, and manually recorded payments. No bank feed supplies these numbers. |
+| Fictional sample household | Explicit demo inputs in [room.ts](web/lib/room.ts) and [demo.ts](web/lib/demo.ts). Each demo creates separate writable records; it is not customer data or a generated model response. |
+| Cloudflare D1 | Stores saved households, hashed access tokens, decisions, check-ins, monthly records, and feedback. Browser storage keeps local drafts and saved personal links. |
+| Groq / optional OpenAI | Server-side requests for conversation guides. Structured income, expense amounts, and balances are excluded from model input; shared free text can still contain amounts. API keys remain server-side. |
+| Vercel / Cloudflare Workers | Public routing and application hosting. Local development uses the Cloudflare runtime and a local D1 database. |
+| Public research accounts | [research/evidence.csv](research/evidence.csv) records sources used to explore the problem. These are research material, not a runtime dataset or model training data supplied by this project. |
 
 ## Run it locally
 
 Requires **Node.js 22.13+** and npm.
+
+**1. Clone, install the locked dependencies, and build.**
 
 ```sh
 git clone https://github.com/amurapan/first-month.git
@@ -122,18 +162,54 @@ npm --prefix web run install:ci
 npm run build
 ```
 
-Then [initialize the local database](docs/DEVELOPMENT.md#initialize-the-local-database) and run `npm run dev`. The complete setup, optional model configuration, verification commands, and screenshot script are in [Development](docs/DEVELOPMENT.md).
+**2. Initialize a fresh local database.** Apply the five migrations below once, in order. They use `--local` and do not modify production. Do not rerun them against an already initialized database.
+
+<details>
+<summary><strong>Database initialization commands</strong></summary>
+
+```sh
+cd web
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_cultured_inhumans.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_daily_anita_blake.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0002_workable_bug.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0003_lively_mephisto.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0004_eminent_ironclad.sql
+cd ..
+```
+
+</details>
+
+**3. Optionally connect conversation generation.** Create the ignored file `web/.dev.vars` using [web/.env.example](web/.env.example) as a template. Set `GROQ_API_KEY`; `GROQ_MODEL` defaults to `openai/gpt-oss-120b`. Alternatively, leave the Groq key unset and provide both `OPENAI_API_KEY` and `OPENAI_MODEL`. Without provider credentials, budgets, agreements, spending, decisions, and check-ins still work; generated guides show an unavailable message.
+
+**4. Start the application from the repository root.**
+
+```sh
+npm run dev
+```
+
+Open **http://localhost:5173**, or the URL printed by the server if that port is occupied. Follow [Try it in two minutes](#try-it-in-two-minutes) against your local instance to check the complete demo flow.
+
+**5. Run the automated checks.** In a second terminal at the repository root:
 
 ```sh
 npm test
 node web/node_modules/typescript/bin/tsc -p web/tsconfig.json --noEmit
+# Requires the local server to be running:
+npm run check:api
 ```
 
-The [release report](docs/RELEASE-CHECK.md) records the API and browser scenarios checked, accessibility findings, and remaining submission work.
+Additional API checks, browser checks, and screenshot commands are in [Development](docs/DEVELOPMENT.md). The [release report](docs/RELEASE-CHECK.md) records the scenarios checked, accessibility findings, and remaining submission work.
+
+## Current limitations
+
+- **Free release:** no payment collection, subscription billing, bank connections, or outgoing email. Calendar reminders are downloaded manually.
+- **Two people, USD:** no multi-person households, currency conversion, joint-account ledger, or pooled-savings accounting. Income, expenses, and savings progress are self-reported; projections are not live bank balances.
+- **Private-link access:** anyone with a personal link can act as that partner. There are no accounts or email recovery; users need to keep their link or its backup.
+- **Model availability:** generated guides require credentials and available provider quota. Per-household/conversation limits, a shared daily cap, and a timeout apply; the budget and agreement flows work independently.
+- **Time and projection boundaries:** weeks and months use UTC; purchase projections cover up to 24 months and hold income and bills constant. Unsettled balances stay in their original month. Detailed record limits are listed in [Architecture](docs/ARCHITECTURE.md#hosting-and-release-limits).
+- **Validation:** software checks and public-source research are documented; participant interviews, usability studies, willingness to pay, and retention have not been validated.
 
 ## Product and research status
-
-The current release is **free**. Payments, subscriptions, bank connections, and outgoing email are not enabled.
 
 The business hypothesis is a subscription per household for ongoing coordination: a shared budget, monthly reconciliation, purchase planning, and recurring check-ins. Pricing, conversion, retention, and acquisition economics still need real-user validation. Inviting a partner helps activate a household; it does not by itself prove low acquisition cost.
 
